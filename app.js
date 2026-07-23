@@ -615,6 +615,33 @@ function removeVariable(name) {
   renderVariableList();
 }
 
+function insertFormulaSnippet(snippet) {
+  if (!snippet) return;
+  const targetId = document.getElementById("insert-target").value;
+  const input = document.getElementById(targetId);
+  if (!input) return;
+
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? input.value.length;
+  const insert = snippet === "()" ? "()" : snippet;
+  input.value = input.value.slice(0, start) + insert + input.value.slice(end);
+  const nextCursor = snippet === "()" ? start + 1 : start + insert.length;
+  input.focus();
+  input.setSelectionRange(nextCursor, nextCursor);
+}
+
+function renderVariableInsertOptions() {
+  const select = document.getElementById("insert-variable");
+  if (!select) return;
+  select.innerHTML = '<option value="">Choose variable</option>';
+  customVariables.forEach((variable) => {
+    const option = document.createElement("option");
+    option.value = variable.name;
+    option.textContent = variable.name;
+    select.appendChild(option);
+  });
+}
+
 function renderVariableList() {
   const list = document.getElementById("variable-list");
   list.innerHTML = "";
@@ -650,6 +677,7 @@ function renderVariableList() {
     li.appendChild(actions);
     list.appendChild(li);
   });
+  renderVariableInsertOptions();
 }
 
 function setupCustomModal() {
@@ -674,6 +702,12 @@ function setupCustomModal() {
         addVariableFromForm();
       }
     });
+  document.querySelectorAll("[data-insert-select]").forEach((select) => {
+    select.addEventListener("change", () => {
+      insertFormulaSnippet(select.value);
+      select.value = "";
+    });
+  });
 
   document.getElementById("custom-test").addEventListener("click", () => {
     if (candles.length === 0) {
@@ -709,6 +743,7 @@ function setupCustomModal() {
 function openCustomModal() {
   customVariables = [];
   renderVariableList();
+  renderVariableInsertOptions();
   document.getElementById("custom-modal").hidden = false;
   document.getElementById("custom-formula").focus();
 }

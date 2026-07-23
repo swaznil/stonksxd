@@ -18,25 +18,29 @@
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   margin: 0;
-  padding: 0;
-  height: 100%;
+  min-height: 100%;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
   font-size: 14px;
 }
 
-h1, h2 {
+h1,
+h2,
+h3 {
+  margin: 0;
   font-family: var(--mono);
   font-weight: 500;
-  margin: 0;
 }
 
-button, select, input {
-  font-family: var(--sans);
-  font-size: 13px;
+button,
+select,
+input,
+textarea {
+  font: inherit;
 }
 
 .topbar {
@@ -48,75 +52,70 @@ button, select, input {
   background: var(--panel);
 }
 
-.brand {
+.brand,
+.file-controls {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
 .brand-mark {
-  font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 1px;
   border: 1px solid var(--accent);
   color: var(--accent);
   padding: 4px 6px;
+  font-family: var(--mono);
+  font-size: 12px;
 }
 
 .brand-text h1 {
   font-size: 18px;
-  line-height: 1.1;
-  letter-spacing: 0.5px;
 }
 
-.brand-text p {
+.brand-text p,
+.file-name {
   margin: 2px 0 0;
-  font-size: 12px;
   color: var(--muted);
   font-family: var(--mono);
+  font-size: 12px;
 }
 
-.file-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.file-btn,
+button {
+  border: 1px solid var(--rule-strong);
+  background: var(--panel-alt);
+  color: var(--ink);
+  cursor: pointer;
 }
 
 .file-btn {
-  border: 1px solid var(--rule-strong);
   padding: 7px 14px;
-  cursor: pointer;
-  background: var(--panel-alt);
-  color: var(--ink);
   font-family: var(--mono);
   font-size: 12px;
 }
 
-.file-btn:hover {
+.file-btn:hover,
+button:hover {
   border-color: var(--accent);
   color: var(--accent);
-}
-
-.file-name {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--muted);
 }
 
 .workspace {
   display: grid;
   grid-template-columns: 1fr 280px;
-  gap: 0;
   min-height: calc(100vh - 96px);
 }
 
 .chart-column {
-  border-right: 1px solid var(--rule-strong);
   display: flex;
   flex-direction: column;
-  background: var(--panel);
   height: calc(100vh - 96px);
   overflow-y: auto;
+  border-right: 1px solid var(--rule-strong);
+  background: var(--panel);
+}
+
+.chart-box {
+  width: 100%;
 }
 
 .chart-box-main {
@@ -124,12 +123,7 @@ button, select, input {
   min-height: 200px;
 }
 
-#panes-container {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-
+#panes-container,
 .pane-wrapper {
   display: flex;
   flex-direction: column;
@@ -149,7 +143,6 @@ button, select, input {
 }
 
 .chart-box-pane {
-  width: 100%;
   height: 160px;
   flex-shrink: 0;
 }
@@ -160,208 +153,100 @@ button, select, input {
   align-items: baseline;
   padding: 8px 16px;
   border-bottom: 1px solid var(--rule);
+  color: var(--muted);
   font-family: var(--mono);
   font-size: 12px;
-  color: var(--muted);
 }
 
-#series-title {
-  color: var(--ink);
-  font-weight: 600;
-}
-
+#series-title,
 .ohlc-readout {
-  font-family: var(--mono);
   color: var(--ink);
-}
-
-.chart-box {
-  width: 100%;
 }
 
 .sidebar {
-  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  background: var(--panel);
   overflow-y: auto;
+  padding: 16px;
+  background: var(--panel);
 }
 
 .panel h2 {
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--muted);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+
+.panel-subheading {
+  margin: 14px 0 8px;
   color: var(--muted);
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 6px;
-  margin-bottom: 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .8px;
 }
 
 #indicator-form label {
   display: block;
+  margin: 10px 0 4px;
+  color: var(--muted);
   font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--muted);
-  margin-top: 10px;
-  margin-bottom: 4px;
+  letter-spacing: .5px;
 }
 
-#indicator-form select,
-#indicator-form input,
-#custom-form select,
-#custom-form input,
-#custom-form textarea {
+select,
+input,
+textarea {
   width: 100%;
-  padding: 6px 8px;
   border: 1px solid var(--rule-strong);
   background: var(--panel-alt);
   color: var(--ink);
 }
 
-.variable-builder {
-  margin-top: 14px;
-  padding: 12px;
-  border: 1px solid var(--rule);
-  background: rgba(23, 27, 38, 0.55);
-}
-
-.variable-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.variable-head h3 {
-  margin: 2px 0 0;
-  color: var(--accent);
-  font-family: var(--mono);
-  font-size: 16px;
-}
-
-.eyebrow {
-  display: block;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-}
-
-.beta-pill {
-  border-radius: 999px;
-  background: var(--accent);
-  color: #fff;
-  padding: 6px 10px;
-  font-family: var(--mono);
-  font-size: 11px;
-}
-
-.variable-entry {
-  display: grid;
-  grid-template-columns: 90px minmax(0, 1fr) 72px;
-  gap: 8px;
-  align-items: end;
-}
-
-.compact-btn {
-  margin-top: 0;
-  height: 31px;
+select,
+input {
   padding: 6px 8px;
 }
 
-.variable-list {
-  list-style: none;
-  margin: 12px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+textarea {
+  padding: 8px;
 }
 
-.variable-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  border: 1px solid var(--rule);
-  background: var(--panel-alt);
-  padding: 6px 8px;
-  font-family: var(--mono);
-  font-size: 12px;
-}
-
-.variable-token {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.variable-actions {
-  display: flex;
-  flex-shrink: 0;
-  gap: 6px;
-}
-
-.variable-actions button {
-  border: 1px solid var(--rule-strong);
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-  font-family: var(--mono);
-  font-size: 11px;
-  padding: 2px 6px;
-}
-
-.variable-actions button:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-#indicator-form select:focus,
-#indicator-form input:focus,
-#custom-form select:focus,
-#custom-form input:focus,
-#custom-form textarea:focus {
+select:focus,
+input:focus,
+textarea:focus {
   outline: none;
   border-color: var(--accent);
 }
 
-.primary-btn {
-  margin-top: 14px;
+.primary-btn,
+.secondary-btn {
   width: 100%;
   padding: 8px;
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: #fff;
-  cursor: pointer;
   font-family: var(--mono);
   font-size: 12px;
-  letter-spacing: 0.5px;
+}
+
+.primary-btn {
+  margin-top: 14px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
 }
 
 .primary-btn:hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
+  color: #fff;
 }
 
 .secondary-btn {
-  margin-top: 14px;
-  width: 100%;
-  padding: 8px;
-  border: 1px solid var(--rule-strong);
   background: var(--panel-alt);
-  color: var(--ink);
-  cursor: pointer;
-  font-family: var(--mono);
-  font-size: 12px;
-}
-
-.secondary-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
 }
 
 .indicator-list {
@@ -377,11 +262,12 @@ button, select, input {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   border: 1px solid var(--rule);
   background: var(--panel-alt);
   padding: 6px 8px;
-  font-size: 12px;
   font-family: var(--mono);
+  font-size: 12px;
 }
 
 .indicator-list .swatch {
@@ -393,12 +279,10 @@ button, select, input {
 }
 
 .indicator-list button {
-  border: 1px solid var(--rule-strong);
-  background: none;
-  cursor: pointer;
   padding: 2px 6px;
   color: var(--muted);
   font-family: var(--mono);
+  font-size: 12px;
 }
 
 .indicator-list button:hover {
@@ -409,8 +293,8 @@ button, select, input {
 .empty-note {
   color: var(--muted);
   font-style: italic;
-  border: none !important;
-  background: none !important;
+  border: 0 !important;
+  background: transparent !important;
 }
 
 .summary-table {
@@ -431,7 +315,6 @@ button, select, input {
 
 .summary-table td:last-child {
   text-align: right;
-  color: var(--ink);
 }
 
 .statusbar {
@@ -439,151 +322,22 @@ button, select, input {
   justify-content: space-between;
   padding: 8px 20px;
   border-top: 1px solid var(--rule-strong);
-  font-size: 11px;
-  color: var(--muted);
   background: var(--panel);
+  color: var(--muted);
   font-family: var(--mono);
+  font-size: 11px;
 }
 
 @media (max-width: 900px) {
   .workspace {
     grid-template-columns: 1fr;
   }
+
+  .chart-column {
+    border-right: 0;
+  }
+
   .sidebar {
     border-top: 1px solid var(--rule-strong);
   }
-}
-
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 18px;
-  background: rgba(5, 7, 12, 0.72);
-  z-index: 10;
-}
-
-.modal-backdrop[hidden] {
-  display: none;
-}
-
-.modal {
-  width: min(560px, 100%);
-  max-height: calc(100vh - 36px);
-  overflow-y: auto;
-  border: 1px solid var(--rule-strong);
-  background: var(--panel);
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.42);
-  padding: 16px;
-}
-
-.modal-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 8px;
-  margin-bottom: 12px;
-}
-
-.modal-head h2 {
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--ink);
-}
-
-.icon-btn {
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--rule-strong);
-  background: var(--panel-alt);
-  color: var(--muted);
-  cursor: pointer;
-  font-family: var(--mono);
-}
-
-.icon-btn:hover {
-  color: var(--down);
-  border-color: var(--down);
-}
-
-#custom-form label {
-  display: block;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--muted);
-  margin-top: 10px;
-  margin-bottom: 4px;
-}
-
-#custom-form textarea {
-  resize: vertical;
-  min-height: 92px;
-  font-family: var(--mono);
-}
-
-.hint {
-  margin: 7px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.check-row {
-  display: flex !important;
-  align-items: center;
-  gap: 8px;
-  text-transform: none !important;
-  letter-spacing: 0 !important;
-}
-
-.check-row input {
-  width: auto !important;
-}
-
-.modal-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.panel-subheading{
-    margin:14px 0 8px;
-    color:var(--muted);
-    font-family:var(--mono);
-    font-size:11px;
-    text-transform:uppercase;
-    letter-spacing:.8px;
-}
-
-.formula-tools{
-    margin-top:8px;
-}
-
-.formula-help-btn{
-    margin-top:0;
-    width:auto;
-    padding:6px 10px;
-}
-
-.formula-modal{
-    width:min(500px,100%);
-}
-
-.formula-modal pre{
-    margin:0;
-    font-family:var(--mono);
-    font-size:12px;
-    line-height:1.7;
-    white-space:pre-wrap;
-    color:var(--ink);
 }
