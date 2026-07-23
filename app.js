@@ -35,6 +35,7 @@ let indicatorSeq = 0;
 let syncing = false;
 const CUSTOM_KEY = "chartlab.customIndicators.v1";
 let customIndicators = loadCustomIndicators();
+let customVariables = [];
 
 const mainChartEl = document.getElementById("main-chart");
 const panesContainer = document.getElementById("panes-container");
@@ -252,16 +253,11 @@ function loadData(rows, fileName) {
   indicators = [];
   renderIndicatorList();
 
-  document.getElementById("series-title").textContent = fileName.replace(
-    /\.csv$/i,
-    "",
-  );
+  document.getElementById("series-title").textContent = fileName.replace(/\.csv$/i, "",);
   document.getElementById("stat-rows").textContent = candles.length;
   document.getElementById("stat-start").textContent = candles[0].time;
-  document.getElementById("stat-end").textContent =
-    candles[candles.length - 1].time;
-  document.getElementById("stat-close").textContent =
-    candles[candles.length - 1].close.toFixed(2);
+  document.getElementById("stat-end").textContent =candles[candles.length - 1].time;
+  document.getElementById("stat-close").textContent =candles[candles.length - 1].close.toFixed(2);
 
   setStatus(`Loaded ${candles.length} rows.`);
 }
@@ -294,21 +290,6 @@ function renderParamFields() {
   const type = document.getElementById("ind-type").value;
   const container = document.getElementById("param-fields");
   container.innerHTML = "";
-  if (type === "custom") {
-    const note = document.createElement("p");
-    note.className = "hint";
-    note.textContent = "Open the builder to create a formula indicator.";
-    container.appendChild(note);
-    return;
-  }
-  if (type.startsWith("saved-custom:")) {
-    const def = customIndicators[Number(type.split(":")[1])];
-    const note = document.createElement("p");
-    note.className = "hint";
-    note.textContent = def ? def.formula : "Saved custom indicator";
-    container.appendChild(note);
-    return;
-  }
   PARAM_SETS[type].forEach((p) => {
     const label = document.createElement("label");
     label.textContent = p.label;
@@ -337,15 +318,6 @@ document
       return;
     }
     const type = document.getElementById("ind-type").value;
-    if (type === "custom") {
-      openCustomModal();
-      return;
-    }
-    if (type.startsWith("saved-custom:")) {
-      const def = customIndicators[Number(type.split(":")[1])];
-      if (def) addIndicator("custom", def);
-      return;
-    }
     const params = {};
     PARAM_SETS[type].forEach((p) => {
       params[p.id] = Number(document.getElementById("param-" + p.id).value);
@@ -517,7 +489,7 @@ function addIndicator(type, params) {
 
   if (type === "custom") {
     try {
-      const data = evaluateFormula(params.formula, candles);
+      const data = evaluateFormula(params.formula, candles, params.variables || []);
       if (data.length === 0)
         throw new Error("Formula produced no plottable values");
       record.kind = params.panel === "pane" ? "pane" : "overlay";
@@ -598,14 +570,110 @@ function renderIndicatorList() {
   });
 }
 
+document.getElementById("formula-help-btn").addEventListener("click", () => {
+  document.getElementById("formula-modal").hidden = false;
+});
+
+document.getElementById("formula-close").addEventListener("click", () => {
+  document.getElementById("formula-modal").hidden = true;
+});
+
+document.getElementById("formula-modal").addEventListener("click", (e) => {
+  if (e.target.id === "formula-modal")
+    document.getElementById("formula-modal").hidden = true;
+});
+
+function addVariableFromForm() {
+  const name = document.getElementById("variable-name").value.trim().toUpperCase();
+  const formula = document.getElementById("variable-formula").value.trim();
+  if (!/^[A-Z]$/.test(name)) {
+    setStatus("Variable must be A through Z.");
+    return;
+  }
+  if (!formula) {
+    setStatus("Enter a formula for variable " + name + ".");
+    return;
+  }
+  customVariables = customVariables
+    .filter((item) => item.name !== name)
+    .concat([{ name, formula }])
+    .sort((a, b) => a.name.localeCompare(b.name));
+  document.getElementById("variable-formula").value = "";
+  renderVariableList();
+}
+
+function editVariable(name) {
+  const item = customVariables.find((variable) => variable.name === name);
+  if (!item) return;
+  document.getElementById("variable-name").value = item.name;
+  document.getElementById("variable-formula").value = item.formula;
+  document.getElementById("variable-formula").focus();
+}
+
+function removeVariable(name) {
+  customVariables = customVariables.filter((variable) => variable.name !== name);
+  renderVariableList();
+}
+
+function renderVariableList() {
+  const list = document.getElementById("variable-list");
+  list.innerHTML = "";
+  if (customVariables.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty-note";
+    li.textContent = "No variables added.";
+    list.appendChild(li);
+    return;
+  }
+  customVariables.forEach((variable) => {
+    const li = document.createElement("li");
+    const text = document.createElement("span");
+    text.className = "variable-token";
+    text.textContent = `${variable.name} = ${variable.formula}`;
+
+    const actions = document.createElement("span");
+    actions.className = "variable-actions";
+
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.textContent = "Edit";
+    edit.addEventListener("click", () => editVariable(variable.name));
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.textContent = "Delete";
+    remove.addEventListener("click", () => removeVariable(variable.name));
+
+    actions.appendChild(edit);
+    actions.appendChild(remove);
+    li.appendChild(text);
+    li.appendChild(actions);
+    list.appendChild(li);
+  });
+}
+
 function setupCustomModal() {
   const modal = document.getElementById("custom-modal");
   const form = document.getElementById("custom-form");
-  document.getElementById("custom-close").addEventListener("click", closeCustomModal);
+  document
+    .getElementById("custom-close")
+    .addEventListener("click", closeCustomModal);
 
   modal.addEventListener("click", (event) => {
     if (event.target === modal) closeCustomModal();
   });
+  document
+    .getElementById("add-variable-btn")
+    .addEventListener("click", addVariableFromForm);
+
+  document
+    .getElementById("variable-formula")
+    .addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addVariableFromForm();
+      }
+    });
 
   document.getElementById("custom-test").addEventListener("click", () => {
     if (candles.length === 0) {
@@ -614,7 +682,7 @@ function setupCustomModal() {
     }
     const def = readCustomForm();
     try {
-      const data = evaluateFormula(def.formula, candles);
+      const data = evaluateFormula(def.formula, candles, def.variables);
       setStatus(`Preview OK: ${data.length} plotted points.`);
     } catch (err) {
       setStatus("Custom indicator error: " + err.message);
@@ -639,6 +707,8 @@ function setupCustomModal() {
 }
 
 function openCustomModal() {
+  customVariables = [];
+  renderVariableList();
   document.getElementById("custom-modal").hidden = false;
   document.getElementById("custom-formula").focus();
 }
@@ -651,13 +721,13 @@ function closeCustomModal() {
 
 function readCustomForm() {
   return {
-    name:
-      document.getElementById("custom-name").value.trim() || "Custom Indicator",
+    name: document.getElementById("custom-name").value.trim() || "Custom Indicator",
     formula: document.getElementById("custom-formula").value.trim(),
     panel: document.getElementById("custom-panel").value,
     draw: document.getElementById("custom-draw").value,
     color: document.getElementById("custom-color").value,
     width: Number(document.getElementById("custom-width").value) || 2,
+    variables: customVariables.map((item) => ({ ...item })),
   };
 }
 
@@ -678,6 +748,7 @@ function saveCustomIndicator(def) {
     draw: def.draw,
     color: def.color,
     width: def.width,
+    variables: Array.isArray(def.variables) ? def.variables : [],
   };
   const withoutDuplicate = customIndicators.filter(
     (item) =>
@@ -689,26 +760,65 @@ function saveCustomIndicator(def) {
 }
 
 function renderCustomOptions() {
-  const select = document.getElementById("ind-type");
-  select
-    .querySelectorAll("[data-custom-option]")
-    .forEach((option) => option.remove());
-  select
-    .querySelectorAll("optgroup[data-custom-group]")
-    .forEach((group) => group.remove());
-  if (customIndicators.length === 0) return;
-  const group = document.createElement("optgroup");
-  group.label = "Saved Custom";
-  group.dataset.customGroup = "true";
-  customIndicators.forEach((def, index) => {
-    const option = document.createElement("option");
-    option.value = "saved-custom:" + index;
-    option.textContent = def.name;
-    option.dataset.customOption = "true";
-    group.appendChild(option);
+  const list = document.getElementById("saved-custom-list");
+  list.innerHTML = "";
+
+  if (customIndicators.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty-note";
+    li.textContent = "No saved indicators.";
+    list.appendChild(li);
+    return;
+  }
+
+  customIndicators.forEach((def) => {
+    const li = document.createElement("li");
+
+    const name = document.createElement("span");
+    name.textContent = def.name;
+
+    const actions = document.createElement("div");
+    actions.style.display = "flex";
+    actions.style.gap = "6px";
+
+    const use = document.createElement("button");
+    use.textContent = "Use";
+
+    use.onclick = () => {
+      if (!candles.length) {
+        setStatus("Load a CSV first.");
+        return;
+      }
+
+      addIndicator("custom", def);
+    };
+
+    const del = document.createElement("button");
+    del.textContent = "Delete";
+
+    del.onclick = () => {
+      customIndicators = customIndicators.filter(
+        (x) => !(x.name === def.name && x.formula === def.formula),
+      );
+
+      localStorage.setItem(CUSTOM_KEY, JSON.stringify(customIndicators));
+
+      renderCustomOptions();
+    };
+
+    actions.appendChild(use);
+    actions.appendChild(del);
+
+    li.appendChild(name);
+    li.appendChild(actions);
+
+    list.appendChild(li);
   });
-  select.insertBefore(group, select.querySelector('option[value="custom"]'));
 }
+
+document
+  .getElementById("new-custom-btn")
+  .addEventListener("click", openCustomModal);
 
 createCharts();
 renderCustomOptions();

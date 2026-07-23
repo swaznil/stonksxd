@@ -220,6 +220,106 @@ button, select, input {
   color: var(--ink);
 }
 
+.variable-builder {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--rule);
+  background: rgba(23, 27, 38, 0.55);
+}
+
+.variable-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.variable-head h3 {
+  margin: 2px 0 0;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 16px;
+}
+
+.eyebrow {
+  display: block;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.beta-pill {
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.variable-entry {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) 72px;
+  gap: 8px;
+  align-items: end;
+}
+
+.compact-btn {
+  margin-top: 0;
+  height: 31px;
+  padding: 6px 8px;
+}
+
+.variable-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.variable-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--rule);
+  background: var(--panel-alt);
+  padding: 6px 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.variable-token {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.variable-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.variable-actions button {
+  border: 1px solid var(--rule-strong);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 2px 6px;
+}
+
+.variable-actions button:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 #indicator-form select:focus,
 #indicator-form input:focus,
 #custom-form select:focus,
@@ -454,4 +554,36 @@ button, select, input {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.panel-subheading{
+    margin:14px 0 8px;
+    color:var(--muted);
+    font-family:var(--mono);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.8px;
+}
+
+.formula-tools{
+    margin-top:8px;
+}
+
+.formula-help-btn{
+    margin-top:0;
+    width:auto;
+    padding:6px 10px;
+}
+
+.formula-modal{
+    width:min(500px,100%);
+}
+
+.formula-modal pre{
+    margin:0;
+    font-family:var(--mono);
+    font-size:12px;
+    line-height:1.7;
+    white-space:pre-wrap;
+    color:var(--ink);
 }

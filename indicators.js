@@ -200,7 +200,181 @@ function calcStochastic(candles, period) {
   return { kLine, dLine };
 }
 
-function evaluateFormula(formula, candles) {
+function evaluateFormula(formula, candles, variableDefs = []) {
+  const tokens = tokenizeFormula(formula);
+  let pos = 0;
+  const variableMap = buildVariableMap(variableDefs);
+  const variableCache = new Map();
+
+  function peek() {
+    return tokens[pos];
+  }
+
+  function take(type, value) {
+    const token = peek();
+    if (!token || token.type !== type || (value && token.value !== value)) {
+      throw new Error(`Expected ${value || type}`);
+    }
+    pos++;
+    return token;
+  }
+
+  function parseExpression() {
+    let node = parseTerm();
+    while (peek() && (peek().value === "+" || peek().value === "-")) {
+      const op = take("op").value;
+      node = { type: "binary", op, left: node, right: parseTerm() };
+    }
+    return node;
+  }
+
+  function parseTerm() {
+    let node = parseFactor();
+    while (peek() && (peek().value === "*" || peek().value === "/")) {
+      const op = take("op").value;
+      node = { type: "binary", op, left: node, right: parseFactor() };
+    }
+    return node;
+  }
+
+  function parseFactor() {
+    const token = peek();
+    if (!token) throw new Error("Unexpected end of formula");
+    if (token.value === "-") {
+      take("op", "-");
+      return { type: "unary", op: "-", expr: parseFactor() };
+    }
+    if (token.type === "number") {
+      take("number");
+      return { type: "number", value: token.value };
+    }
+    if (token.type === "ident") {
+      const name = take("ident").value;
+      if (peek() && peek().value === "(") {
+        take("paren", "(");
+        const args = [];
+        if (!peek() || peek().value !== ")") {
+          do {
+            args.push(parseExpression());
+            if (!peek() || peek().value !== ",") break;
+            take("comma", ",");
+          } while (true);
+        }
+        take("paren", ")");
+        return { type: "call", name, args };
+      }
+      return { type: "ident", name };
+    }
+    if (token.value === "(") {
+      take("paren", "(");
+      const node = parseExpression();
+      take("paren", ")");
+      return node;
+    }
+    throw new Error(`Unexpected token "${token.value}"`);
+  }
+
+  const ast = parseExpression();
+  if (pos !== tokens.length)
+    throw new Error(`Unexpected token "${peek().value}"`);
+  const result = evalFormulaNode(ast, candles, variableMap, variableCache, []);
+  return seriesToChartData(asSeries(result, candles.length).values, candles);
+}
+
+function buildVariableMap(variableDefs) {
+  const map = new Map();
+  (variableDefs || []).forEach((def) => {
+    if (!def || !def.name || !def.formula) return;
+    const name = String(def.name).trim().toUpperCase();
+    if (/^[A-Z]$/.test(name)) map.set(name, String(def.formula).trim());
+  });
+  return map;
+}
+
+function tokenizeFormula(formula) {
+  const tokens = [];
+  let i = 0;
+  while (i < formula.length) {
+    const ch = formula[i];
+    if (/\s/.test(ch)) {
+      i++;
+    } else if (/[0-9.]/.test(ch)) {
+      let raw = ch;
+      i++;
+      while (i < formula.length && /[0-9.]/.test(formula[i]))
+        raw += formula[i++];
+      const value = Number(raw);
+      if (!Number.isFinite(value)) throw new Error(`Invalid number "${raw}"`);
+      tokens.push({ type: "number", value });
+    } else if (/[a-z_]/i.test(ch)) {
+      let raw = ch;
+      i++;
+      while (i < formula.length && /[a-z0-9_]/i.test(formula[i]))
+        raw += formula[i++];
+      tokens.push({ type: "ident", value: raw });
+    } else if ("+-*/".includes(ch)) {
+      tokens.push({ type: "op", value: ch });
+      i++;
+    } else if ("()".includes(ch)) {
+      tokens.push({ type: "paren", value: ch });
+      i++;
+    } else if (ch === ",") {
+      tokens.push({ type: "comma", value: ch });
+      i++;
+    } else {
+      throw new Error(`Invalid character "${ch}"`);
+    }
+  }
+  return tokens;
+}
+
+function evalFormulaNode(node, candles, variableMap = new Map(), variableCache = new Map(), stack = []) {
+  if (node.type === "number") return { kind: "scalar", value: node.value };
+  if (node.type === "ident") {
+    const name = node.name.toUpperCase();
+    if (variableMap.has(name)) {
+      return evalVariable(name, candles, variableMap, variableCache, stack);
+    }
+    return candleField(node.name, candles);
+  }
+  if (node.type === "unary")
+    return mapSeries(
+      evalFormulaNode(node.expr, candles, variableMap, variableCache, stack),
+      (v) => -v,
+      candles.length,
+    );
+  if (node.type === "binary") {
+    return combineSeries(
+      evalFormulaNode(node.left, candles, variableMap, variableCache, stack),
+      evalFormulaNode(node.right, candles, variableMap, variableCache, stack),
+      node.op,
+      candles.length,
+    );
+  }
+  if (node.type === "call") {
+    const args = node.args.map((arg) =>
+      evalFormulaNode(arg, candles, variableMap, variableCache, stack),
+    );
+    return callFormulaFunction(node.name, args, candles.length);
+  }
+  throw new Error("Invalid formula");
+}
+
+function evalVariable(name, candles, variableMap, variableCache, stack) {
+  if (variableCache.has(name)) return variableCache.get(name);
+  if (stack.includes(name)) {
+    throw new Error(`Variable cycle detected: ${[...stack, name].join(" -> ")}`);
+  }
+  const formula = variableMap.get(name);
+  const result = evalFormulaRaw(formula, candles, variableMap, variableCache, [
+    ...stack,
+    name,
+  ]);
+  variableCache.set(name, result);
+  return result;
+}
+
+function evalFormulaRaw(formula, candles, variableMap, variableCache, stack) {
   const tokens = tokenizeFormula(formula);
   let pos = 0;
 
@@ -275,69 +449,7 @@ function evaluateFormula(formula, candles) {
   const ast = parseExpression();
   if (pos !== tokens.length)
     throw new Error(`Unexpected token "${peek().value}"`);
-  const result = evalFormulaNode(ast, candles);
-  return seriesToChartData(asSeries(result, candles.length).values, candles);
-}
-
-function tokenizeFormula(formula) {
-  const tokens = [];
-  let i = 0;
-  while (i < formula.length) {
-    const ch = formula[i];
-    if (/\s/.test(ch)) {
-      i++;
-    } else if (/[0-9.]/.test(ch)) {
-      let raw = ch;
-      i++;
-      while (i < formula.length && /[0-9.]/.test(formula[i]))
-        raw += formula[i++];
-      const value = Number(raw);
-      if (!Number.isFinite(value)) throw new Error(`Invalid number "${raw}"`);
-      tokens.push({ type: "number", value });
-    } else if (/[a-z_]/i.test(ch)) {
-      let raw = ch;
-      i++;
-      while (i < formula.length && /[a-z0-9_]/i.test(formula[i]))
-        raw += formula[i++];
-      tokens.push({ type: "ident", value: raw });
-    } else if ("+-*/".includes(ch)) {
-      tokens.push({ type: "op", value: ch });
-      i++;
-    } else if ("()".includes(ch)) {
-      tokens.push({ type: "paren", value: ch });
-      i++;
-    } else if (ch === ",") {
-      tokens.push({ type: "comma", value: ch });
-      i++;
-    } else {
-      throw new Error(`Invalid character "${ch}"`);
-    }
-  }
-  return tokens;
-}
-
-function evalFormulaNode(node, candles) {
-  if (node.type === "number") return { kind: "scalar", value: node.value };
-  if (node.type === "ident") return candleField(node.name, candles);
-  if (node.type === "unary")
-    return mapSeries(
-      evalFormulaNode(node.expr, candles),
-      (v) => -v,
-      candles.length,
-    );
-  if (node.type === "binary") {
-    return combineSeries(
-      evalFormulaNode(node.left, candles),
-      evalFormulaNode(node.right, candles),
-      node.op,
-      candles.length,
-    );
-  }
-  if (node.type === "call") {
-    const args = node.args.map((arg) => evalFormulaNode(arg, candles));
-    return callFormulaFunction(node.name, args, candles.length);
-  }
-  throw new Error("Invalid formula");
+  return evalFormulaNode(ast, candles, variableMap, variableCache, stack);
 }
 
 function candleField(name, candles) {

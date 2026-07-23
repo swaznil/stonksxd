@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StonksxD Candlestick chart</title>
+<title>StonksxD Candlestick Chart</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,13 +13,13 @@
     <span class="brand-mark">xD</span>
     <div class="brand-text">
       <h1>StonksxD</h1>
-      <p>Candlestick Chart & Custom Indicators tool</p>
+      <p>Candlestick Chart & Custom Indicators Tool</p>
     </div>
   </div>
 
   <div class="file-controls">
-    <label class="file-btn" for="csv-input">Load CSV</label>
-    <input type="file" id="csv-input" accept=".csv" hidden>
+    <label for="csv-input" class="file-btn">Load CSV</label>
+    <input id="csv-input" type="file" accept=".csv" hidden>
     <span id="file-name" class="file-name">No file loaded</span>
   </div>
 </header>
@@ -38,7 +38,7 @@
   <aside class="sidebar">
 
     <div class="panel">
-      <h2>Add indicator</h2>
+      <h2>Add Indicator</h2>
       <form id="indicator-form">
         <label for="ind-type">Type</label>
         <select id="ind-type">
@@ -51,24 +51,25 @@
           <option value="atr">ATR</option>
           <option value="vwap">VWAP</option>
           <option value="stoch">Stochastic</option>
-          <option value="custom">Custom Indicator...</option>
         </select>
 
         <div id="param-fields"></div>
 
-        <button type="submit" class="primary-btn">Add to chart</button>
+        <button class="primary-btn" type="submit">
+          Add to Chart
+        </button>
       </form>
     </div>
 
     <div class="panel">
-      <h2>Active indicators</h2>
+      <h2>Active Indicators</h2>
       <ul id="indicator-list" class="indicator-list">
         <li class="empty-note">None added yet.</li>
       </ul>
     </div>
 
     <div class="panel">
-      <h2>Data summary</h2>
+      <h2>Data Summary</h2>
       <table class="summary-table">
         <tbody>
           <tr><td>Rows</td><td id="stat-rows">—</td></tr>
@@ -79,23 +80,151 @@
       </table>
     </div>
 
+    <div class="panel">
+      <h2>Custom Indicators</h2>
+
+      <button id="new-custom-btn" class="primary-btn">
+        + Create New Indicator
+      </button>
+
+      <h3 class="panel-subheading">Saved Indicators</h3>
+
+      <ul id="saved-custom-list" class="indicator-list">
+        <li class="empty-note">No saved indicators.</li>
+      </ul>
+    </div>
+
   </aside>
 
 </main>
 
 <div id="custom-modal" class="modal-backdrop" hidden>
   <div class="modal">
+
     <div class="modal-head">
       <h2>Custom Indicator</h2>
-      <button type="button" id="custom-close" class="icon-btn" title="Close">x</button>
+      <button id="custom-close" class="icon-btn" type="button" title="Close">×</button>
     </div>
+
     <form id="custom-form">
       <label for="custom-name">Name</label>
       <input id="custom-name" type="text" value="My Indicator" required>
 
       <label for="custom-formula">Formula</label>
-      <textarea id="custom-formula" rows="4" spellcheck="false" placeholder="EMA(close,20)-EMA(close,50)" required></textarea>
-      <p class="hint">Use open, high, low, close, volume with SMA(), EMA(), RSI(), MAX(), MIN(), ABS(). Arithmetic and nested formulas are supported.</p>
+      <textarea
+        id="custom-formula"
+        rows="4"
+        spellcheck="false"
+        placeholder="(A-B)/A"
+        required
+      ></textarea>
+
+      <div class="variable-builder">
+        <div class="variable-head">
+          <div>
+            <span class="eyebrow">Variables</span>
+            <h3>Formula Builder</h3>
+          </div>
+          <span class="beta-pill">Beta</span>
+        </div>
+
+        <div class="variable-entry">
+          <div>
+            <label for="variable-name">Assign to Variable</label>
+            <select id="variable-name">
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+              <option value="E">E</option>
+              <option value="F">F</option>
+              <option value="G">G</option>
+              <option value="H">H</option>
+              <option value="I">I</option>
+              <option value="J">J</option>
+              <option value="K">K</option>
+              <option value="L">L</option>
+              <option value="M">M</option>
+              <option value="N">N</option>
+              <option value="O">O</option>
+              <option value="P">P</option>
+              <option value="Q">Q</option>
+              <option value="R">R</option>
+              <option value="S">S</option>
+              <option value="T">T</option>
+              <option value="U">U</option>
+              <option value="V">V</option>
+              <option value="W">W</option>
+              <option value="X">X</option>
+              <option value="Y">Y</option>
+              <option value="Z">Z</option>
+            </select>
+          </div>
+          <div>
+            <label for="variable-formula">Variable Formula</label>
+            <input id="variable-formula" type="text" spellcheck="false" placeholder="EMA(close,20)">
+          </div>
+          <button id="add-variable-btn" class="secondary-btn compact-btn" type="button">Add</button>
+        </div>
+
+        <ul id="variable-list" class="variable-list">
+          <li class="empty-note">No variables added.</li>
+        </ul>
+      </div>
+
+      <div class="formula-tools">
+        <button id="formula-help-btn" class="secondary-btn formula-help-btn" type="button">
+          Formula Reference
+        </button>
+      </div>
+
+      <div id="formula-modal" class="modal-backdrop" hidden>
+        <div class="modal formula-modal">
+
+          <div class="modal-head">
+            <h2>Formula Reference</h2>
+            <button id="formula-close" class="icon-btn" type="button">×</button>
+          </div>
+
+<pre>
+Available Fields
+────────────────
+
+open
+high
+low
+close
+volume
+
+
+Functions
+─────────
+
+SMA(series, period)
+EMA(series, period)
+RSI(series, period)
+
+MAX(a,b)
+MAX(series, period)
+
+MIN(a,b)
+MIN(series, period)
+
+ABS(value)
+
+
+Examples
+────────
+
+EMA(close,20)
+ABS(close-open)
+EMA(close,20)-EMA(close,50)
+(high+low+close)/3
+EMA(RSI(close,14),5)
+</pre>
+
+        </div>
+      </div>
 
       <div class="field-grid">
 
@@ -134,16 +263,22 @@
       </label>
 
       <div class="modal-actions">
-        <button type="button" id="custom-test" class="secondary-btn">Preview</button>
-        <button type="submit" class="primary-btn">Add indicator</button>
+        <button id="custom-test" class="secondary-btn" type="button">
+          Preview
+        </button>
+
+        <button class="primary-btn" type="submit">
+          Create Indicator
+        </button>
       </div>
 
     </form>
+
   </div>
 </div>
 
 <footer class="statusbar">
-  <span>StonksxD - Swaznil </span>
+  <span>StonksxD - Swaznil</span>
   <span id="status-msg"></span>
 </footer>
 
@@ -152,5 +287,6 @@
 
 <script src="indicators.js"></script>
 <script src="app.js"></script>
+
 </body>
 </html>
