@@ -33,6 +33,8 @@ let mainChart, candleSeries;
 let indicators = [];
 let indicatorSeq = 0;
 let syncing = false;
+const CUSTOM_KEY = "chartlab.customIndicators.v1";
+let customIndicators = loadCustomIndicators();
 
 const mainChartEl = document.getElementById("main-chart");
 const panesContainer = document.getElementById("panes-container");
@@ -251,7 +253,8 @@ function loadData(rows, fileName) {
   renderIndicatorList();
 
   document.getElementById("series-title").textContent = fileName.replace(
-    /\.csv$/i,"",
+    /\.csv$/i,
+    "",
   );
   document.getElementById("stat-rows").textContent = candles.length;
   document.getElementById("stat-start").textContent = candles[0].time;
@@ -281,12 +284,31 @@ const PARAM_SETS = {
     { id: "slow", label: "Slow Period", default: 26 },
     { id: "signal", label: "Signal Period", default: 9 },
   ],
+  atr: [{ id: "period", label: "Period", default: 14 }],
+  vwap: [],
+  stoch: [{ id: "period", label: "Period", default: 14 }],
+  custom: [],
 };
 
 function renderParamFields() {
   const type = document.getElementById("ind-type").value;
   const container = document.getElementById("param-fields");
   container.innerHTML = "";
+  if (type === "custom") {
+    const note = document.createElement("p");
+    note.className = "hint";
+    note.textContent = "Open the builder to create a formula indicator.";
+    container.appendChild(note);
+    return;
+  }
+  if (type.startsWith("saved-custom:")) {
+    const def = customIndicators[Number(type.split(":")[1])];
+    const note = document.createElement("p");
+    note.className = "hint";
+    note.textContent = def ? def.formula : "Saved custom indicator";
+    container.appendChild(note);
+    return;
+  }
   PARAM_SETS[type].forEach((p) => {
     const label = document.createElement("label");
     label.textContent = p.label;
@@ -315,6 +337,15 @@ document
       return;
     }
     const type = document.getElementById("ind-type").value;
+    if (type === "custom") {
+      openCustomModal();
+      return;
+    }
+    if (type.startsWith("saved-custom:")) {
+      const def = customIndicators[Number(type.split(":")[1])];
+      if (def) addIndicator("custom", def);
+      return;
+    }
     const params = {};
     PARAM_SETS[type].forEach((p) => {
       params[p.id] = Number(document.getElementById("param-" + p.id).value);
@@ -435,6 +466,93 @@ function addIndicator(type, params) {
     record.pane = pane;
   }
 
+  if (type === "atr") {
+    record.kind = "pane";
+    record.label = `ATR(${params.period})`;
+    const pane = createPane(record.label);
+    const data = calcATR(candles, params.period);
+    const color = nextColor();
+    const s = pane.chart.addLineSeries({ color, lineWidth: 2 });
+    s.setData(data);
+    pane.chart.subscribeCrosshairMove((param) =>
+      updateReadout(param, pane.readoutEl, s, false),
+    );
+    record.series.push({ series: s, color });
+    record.pane = pane;
+  }
+
+  if (type === "vwap") {
+    const data = calcVWAP(candles);
+    const color = nextColor();
+    const s = mainChart.addLineSeries({
+      color,
+      lineWidth: 2,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+    });
+    s.setData(data);
+    record.series.push({ series: s, color });
+    record.label = "VWAP";
+  }
+
+  if (type === "stoch") {
+    record.kind = "pane";
+    record.label = `Stochastic(${params.period})`;
+    const pane = createPane(record.label);
+    const { kLine, dLine } = calcStochastic(candles, params.period);
+    const color = nextColor();
+    const signalColor = nextColor();
+    const sK = pane.chart.addLineSeries({ color, lineWidth: 2 });
+    const sD = pane.chart.addLineSeries({ color: signalColor, lineWidth: 1 });
+    sK.setData(kLine);
+    sD.setData(dLine);
+    pane.chart.subscribeCrosshairMove((param) =>
+      updateReadout(param, pane.readoutEl, sK, false),
+    );
+    record.series.push(
+      { series: sK, color },
+      { series: sD, color: signalColor },
+    );
+    record.pane = pane;
+  }
+
+  if (type === "custom") {
+    try {
+      const data = evaluateFormula(params.formula, candles);
+      if (data.length === 0)
+        throw new Error("Formula produced no plottable values");
+      record.kind = params.panel === "pane" ? "pane" : "overlay";
+      record.label = params.name || params.formula;
+      const color = params.color || nextColor();
+      const width = Math.max(1, Math.min(5, Number(params.width) || 2));
+      const target = record.kind === "pane" ? createPane(record.label) : null;
+      const chart = target ? target.chart : mainChart;
+      let s;
+      if (params.draw === "histogram") {
+        s = chart.addHistogramSeries({ color });
+      } else if (params.draw === "area") {
+        s = chart.addAreaSeries({
+          lineColor: color,
+          topColor: color + "55",
+          bottomColor: color + "05",
+          lineWidth: width,
+        });
+      } else {
+        s = chart.addLineSeries({ color, lineWidth: width });
+      }
+      s.setData(data);
+      if (target) {
+        target.chart.subscribeCrosshairMove((param) =>
+          updateReadout(param, target.readoutEl, s, false),
+        );
+        record.pane = target;
+      }
+      record.series.push({ series: s, color });
+    } catch (err) {
+      setStatus("Custom indicator error: " + err.message);
+      return;
+    }
+  }
+
   indicators.push(record);
   renderIndicatorList();
   resizeCharts();
@@ -450,6 +568,7 @@ function removeIndicator(id) {
   }
   indicators = indicators.filter((i) => i.id !== id);
   renderIndicatorList();
+  requestAnimationFrame(resizeCharts);
 }
 
 function renderIndicatorList() {
@@ -479,4 +598,118 @@ function renderIndicatorList() {
   });
 }
 
+function setupCustomModal() {
+  const modal = document.getElementById("custom-modal");
+  const form = document.getElementById("custom-form");
+  document.getElementById("custom-close").addEventListener("click", closeCustomModal);
+
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeCustomModal();
+  });
+
+  document.getElementById("custom-test").addEventListener("click", () => {
+    if (candles.length === 0) {
+      setStatus("Load a CSV before previewing a custom indicator.");
+      return;
+    }
+    const def = readCustomForm();
+    try {
+      const data = evaluateFormula(def.formula, candles);
+      setStatus(`Preview OK: ${data.length} plotted points.`);
+    } catch (err) {
+      setStatus("Custom indicator error: " + err.message);
+    }
+  });
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (candles.length === 0) {
+      setStatus("Load a CSV before adding indicators.");
+      return;
+    }
+
+    const def = readCustomForm();
+    if (document.getElementById("custom-save").checked) {
+      saveCustomIndicator(def);
+    }
+
+    addIndicator("custom", def);
+    closeCustomModal();
+  });
+}
+
+function openCustomModal() {
+  document.getElementById("custom-modal").hidden = false;
+  document.getElementById("custom-formula").focus();
+}
+
+function closeCustomModal() {
+  document.getElementById("custom-modal").hidden = true;
+  document.getElementById("ind-type").value = "sma";
+  renderParamFields();
+}
+
+function readCustomForm() {
+  return {
+    name:
+      document.getElementById("custom-name").value.trim() || "Custom Indicator",
+    formula: document.getElementById("custom-formula").value.trim(),
+    panel: document.getElementById("custom-panel").value,
+    draw: document.getElementById("custom-draw").value,
+    color: document.getElementById("custom-color").value,
+    width: Number(document.getElementById("custom-width").value) || 2,
+  };
+}
+
+function loadCustomIndicators() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_err) {
+    return [];
+  }
+}
+
+function saveCustomIndicator(def) {
+  const normalized = {
+    name: def.name,
+    formula: def.formula,
+    panel: def.panel,
+    draw: def.draw,
+    color: def.color,
+    width: def.width,
+  };
+  const withoutDuplicate = customIndicators.filter(
+    (item) =>
+      item.name !== normalized.name || item.formula !== normalized.formula,
+  );
+  customIndicators = [normalized, ...withoutDuplicate].slice(0, 20);
+  localStorage.setItem(CUSTOM_KEY, JSON.stringify(customIndicators));
+  renderCustomOptions();
+}
+
+function renderCustomOptions() {
+  const select = document.getElementById("ind-type");
+  select
+    .querySelectorAll("[data-custom-option]")
+    .forEach((option) => option.remove());
+  select
+    .querySelectorAll("optgroup[data-custom-group]")
+    .forEach((group) => group.remove());
+  if (customIndicators.length === 0) return;
+  const group = document.createElement("optgroup");
+  group.label = "Saved Custom";
+  group.dataset.customGroup = "true";
+  customIndicators.forEach((def, index) => {
+    const option = document.createElement("option");
+    option.value = "saved-custom:" + index;
+    option.textContent = def.name;
+    option.dataset.customOption = "true";
+    group.appendChild(option);
+  });
+  select.insertBefore(group, select.querySelector('option[value="custom"]'));
+}
+
 createCharts();
+renderCustomOptions();
+setupCustomModal();

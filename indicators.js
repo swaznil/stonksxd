@@ -6,6 +6,7 @@ function calcSMA(candles, period) {
     for (let j = i - period + 1; j <= i; j++) sum += candles[j].close;
     out.push({ time: candles[i].time, value: sum / period });
   }
+
   return out;
 }
 
@@ -25,6 +26,7 @@ function calcEMA(candles, period) {
       out.push({ time: candles[i].time, value: prevEma });
     }
   }
+
   return out;
 }
 
@@ -45,6 +47,7 @@ function calcBollinger(candles, period, mult) {
     upper.push({ time: candles[i].time, value: mean + mult * sd });
     lower.push({ time: candles[i].time, value: mean - mult * sd });
   }
+
   return { upper, middle, lower };
 }
 
@@ -76,6 +79,7 @@ function calcRSI(candles, period) {
       value: rsiFromAverages(avgGain, avgLoss),
     });
   }
+
   return out;
 }
 
@@ -100,6 +104,7 @@ function emaSeriesFromValues(values, period) {
       out.push({ time: values[i].time, value: prevEma });
     }
   }
+
   return out;
 }
 
@@ -143,5 +148,381 @@ function emaValuesFull(series, period) {
       out.push({ time: series[i].time, value: prevEma });
     }
   }
+
   return out;
+}
+
+function calcATR(candles, period) {
+  const trueRanges = [];
+  for (let i = 0; i < candles.length; i++) {
+    const prevClose = i > 0 ? candles[i - 1].close : candles[i].close;
+    trueRanges.push({
+      time: candles[i].time,
+      value: Math.max(
+        candles[i].high - candles[i].low,
+        Math.abs(candles[i].high - prevClose),
+        Math.abs(candles[i].low - prevClose),
+      ),
+    });
+  }
+  return emaSeriesFromValues(trueRanges, period);
+}
+
+function calcVWAP(candles) {
+  const out = [];
+  let pvSum = 0;
+  let volumeSum = 0;
+  for (const c of candles) {
+    const typical = (c.high + c.low + c.close) / 3;
+    pvSum += typical * c.volume;
+    volumeSum += c.volume;
+    if (volumeSum > 0) out.push({ time: c.time, value: pvSum / volumeSum });
+  }
+  return out;
+}
+
+function calcStochastic(candles, period) {
+  const kLine = [];
+  for (let i = period - 1; i < candles.length; i++) {
+    let highest = -Infinity;
+    let lowest = Infinity;
+    for (let j = i - period + 1; j <= i; j++) {
+      highest = Math.max(highest, candles[j].high);
+      lowest = Math.min(lowest, candles[j].low);
+    }
+    const range = highest - lowest;
+    kLine.push({
+      time: candles[i].time,
+      value: range === 0 ? 50 : ((candles[i].close - lowest) / range) * 100,
+    });
+  }
+  const dLine = emaSeriesFromValues(kLine, 3);
+  return { kLine, dLine };
+}
+
+function evaluateFormula(formula, candles) {
+  const tokens = tokenizeFormula(formula);
+  let pos = 0;
+
+  function peek() {
+    return tokens[pos];
+  }
+
+  function take(type, value) {
+    const token = peek();
+    if (!token || token.type !== type || (value && token.value !== value)) {
+      throw new Error(`Expected ${value || type}`);
+    }
+    pos++;
+    return token;
+  }
+
+  function parseExpression() {
+    let node = parseTerm();
+    while (peek() && (peek().value === "+" || peek().value === "-")) {
+      const op = take("op").value;
+      node = { type: "binary", op, left: node, right: parseTerm() };
+    }
+    return node;
+  }
+
+  function parseTerm() {
+    let node = parseFactor();
+    while (peek() && (peek().value === "*" || peek().value === "/")) {
+      const op = take("op").value;
+      node = { type: "binary", op, left: node, right: parseFactor() };
+    }
+    return node;
+  }
+
+  function parseFactor() {
+    const token = peek();
+    if (!token) throw new Error("Unexpected end of formula");
+    if (token.value === "-") {
+      take("op", "-");
+      return { type: "unary", op: "-", expr: parseFactor() };
+    }
+    if (token.type === "number") {
+      take("number");
+      return { type: "number", value: token.value };
+    }
+    if (token.type === "ident") {
+      const name = take("ident").value;
+      if (peek() && peek().value === "(") {
+        take("paren", "(");
+        const args = [];
+        if (!peek() || peek().value !== ")") {
+          do {
+            args.push(parseExpression());
+            if (!peek() || peek().value !== ",") break;
+            take("comma", ",");
+          } while (true);
+        }
+        take("paren", ")");
+        return { type: "call", name, args };
+      }
+      return { type: "ident", name };
+    }
+    if (token.value === "(") {
+      take("paren", "(");
+      const node = parseExpression();
+      take("paren", ")");
+      return node;
+    }
+    throw new Error(`Unexpected token "${token.value}"`);
+  }
+
+  const ast = parseExpression();
+  if (pos !== tokens.length)
+    throw new Error(`Unexpected token "${peek().value}"`);
+  const result = evalFormulaNode(ast, candles);
+  return seriesToChartData(asSeries(result, candles.length).values, candles);
+}
+
+function tokenizeFormula(formula) {
+  const tokens = [];
+  let i = 0;
+  while (i < formula.length) {
+    const ch = formula[i];
+    if (/\s/.test(ch)) {
+      i++;
+    } else if (/[0-9.]/.test(ch)) {
+      let raw = ch;
+      i++;
+      while (i < formula.length && /[0-9.]/.test(formula[i]))
+        raw += formula[i++];
+      const value = Number(raw);
+      if (!Number.isFinite(value)) throw new Error(`Invalid number "${raw}"`);
+      tokens.push({ type: "number", value });
+    } else if (/[a-z_]/i.test(ch)) {
+      let raw = ch;
+      i++;
+      while (i < formula.length && /[a-z0-9_]/i.test(formula[i]))
+        raw += formula[i++];
+      tokens.push({ type: "ident", value: raw });
+    } else if ("+-*/".includes(ch)) {
+      tokens.push({ type: "op", value: ch });
+      i++;
+    } else if ("()".includes(ch)) {
+      tokens.push({ type: "paren", value: ch });
+      i++;
+    } else if (ch === ",") {
+      tokens.push({ type: "comma", value: ch });
+      i++;
+    } else {
+      throw new Error(`Invalid character "${ch}"`);
+    }
+  }
+  return tokens;
+}
+
+function evalFormulaNode(node, candles) {
+  if (node.type === "number") return { kind: "scalar", value: node.value };
+  if (node.type === "ident") return candleField(node.name, candles);
+  if (node.type === "unary")
+    return mapSeries(
+      evalFormulaNode(node.expr, candles),
+      (v) => -v,
+      candles.length,
+    );
+  if (node.type === "binary") {
+    return combineSeries(
+      evalFormulaNode(node.left, candles),
+      evalFormulaNode(node.right, candles),
+      node.op,
+      candles.length,
+    );
+  }
+  if (node.type === "call") {
+    const args = node.args.map((arg) => evalFormulaNode(arg, candles));
+    return callFormulaFunction(node.name, args, candles.length);
+  }
+  throw new Error("Invalid formula");
+}
+
+function candleField(name, candles) {
+  const key = name.toLowerCase();
+  if (!["open", "high", "low", "close", "volume"].includes(key)) {
+    throw new Error(`Unknown field "${name}"`);
+  }
+  return { kind: "series", values: candles.map((c) => c[key]) };
+}
+
+function callFormulaFunction(name, args, length) {
+  const fn = name.toUpperCase();
+  if (fn === "SMA")
+    return rollingAverage(asSeries(args[0], length), asPeriod(args[1]));
+  if (fn === "EMA")
+    return rollingEma(asSeries(args[0], length), asPeriod(args[1]));
+  if (fn === "RSI")
+    return rollingRsi(asSeries(args[0], length), asPeriod(args[1]));
+  if (fn === "MAX")
+    return rollingExtreme(asSeries(args[0], length), args[1], length, Math.max);
+  if (fn === "MIN")
+    return rollingExtreme(asSeries(args[0], length), args[1], length, Math.min);
+  if (fn === "ABS") return mapSeries(args[0], Math.abs, length);
+  throw new Error(`Unknown function "${name}"`);
+}
+
+function asPeriod(arg) {
+  if (!arg || arg.kind !== "scalar" || arg.value < 1) {
+    throw new Error("Period must be a positive number");
+  }
+  return Math.round(arg.value);
+}
+
+function asSeries(value, length) {
+  if (!value) throw new Error("Missing formula argument");
+  if (value.kind === "series") return value;
+  return { kind: "series", values: Array.from({ length }, () => value.value) };
+}
+
+function mapSeries(value, mapper, length) {
+  if (value.kind === "scalar")
+    return { kind: "scalar", value: mapper(value.value) };
+  return {
+    kind: "series",
+    values: value.values.map((v) => (isValidNumber(v) ? mapper(v) : null)),
+  };
+}
+
+function combineSeries(left, right, op, length) {
+  if (left.kind === "scalar" && right.kind === "scalar") {
+    return {
+      kind: "scalar",
+      value: applyOperator(left.value, right.value, op),
+    };
+  }
+  const l = asSeries(left, length).values;
+  const r = asSeries(right, length).values;
+  return {
+    kind: "series",
+    values: l.map((lv, i) =>
+      isValidNumber(lv) && isValidNumber(r[i])
+        ? applyOperator(lv, r[i], op)
+        : null,
+    ),
+  };
+}
+
+function applyOperator(a, b, op) {
+  if (op === "+") return a + b;
+  if (op === "-") return a - b;
+  if (op === "*") return a * b;
+  if (op === "/") return b === 0 ? null : a / b;
+  return null;
+}
+
+function rollingAverage(series, period) {
+  const values = Array(series.values.length).fill(null);
+  for (let i = period - 1; i < series.values.length; i++) {
+    let sum = 0;
+    let count = 0;
+    for (let j = i - period + 1; j <= i; j++) {
+      if (isValidNumber(series.values[j])) {
+        sum += series.values[j];
+        count++;
+      }
+    }
+    if (count === period) values[i] = sum / period;
+  }
+  return { kind: "series", values };
+}
+
+function rollingEma(series, period) {
+  const values = Array(series.values.length).fill(null);
+  const k = 2 / (period + 1);
+  let prev = null;
+  for (let i = 0; i < series.values.length; i++) {
+    const value = series.values[i];
+    if (!isValidNumber(value)) continue;
+    if (prev == null) {
+      let sum = 0;
+      let count = 0;
+      for (let j = Math.max(0, i - period + 1); j <= i; j++) {
+        if (isValidNumber(series.values[j])) {
+          sum += series.values[j];
+          count++;
+        }
+      }
+      if (count === period) {
+        prev = sum / period;
+        values[i] = prev;
+      }
+    } else {
+      prev = value * k + prev * (1 - k);
+      values[i] = prev;
+    }
+  }
+  return { kind: "series", values };
+}
+
+function rollingRsi(series, period) {
+  const values = Array(series.values.length).fill(null);
+  let avgGain = null;
+  let avgLoss = null;
+  for (let i = 1; i < series.values.length; i++) {
+    if (
+      !isValidNumber(series.values[i]) ||
+      !isValidNumber(series.values[i - 1])
+    )
+      continue;
+    if (i === period) {
+      let gainSum = 0;
+      let lossSum = 0;
+      for (let j = 1; j <= period; j++) {
+        const diff = series.values[j] - series.values[j - 1];
+        if (diff >= 0) gainSum += diff;
+        else lossSum -= diff;
+      }
+      avgGain = gainSum / period;
+      avgLoss = lossSum / period;
+    } else if (i > period && avgGain != null && avgLoss != null) {
+      const diff = series.values[i] - series.values[i - 1];
+      avgGain = (avgGain * (period - 1) + Math.max(diff, 0)) / period;
+      avgLoss = (avgLoss * (period - 1) + Math.max(-diff, 0)) / period;
+    }
+    if (i >= period && avgGain != null && avgLoss != null) {
+      values[i] = rsiFromAverages(avgGain, avgLoss);
+    }
+  }
+  return { kind: "series", values };
+}
+
+function rollingExtreme(series, arg, length, compare) {
+  if (arg && arg.kind === "scalar") {
+    const period = asPeriod(arg);
+    const values = Array(series.values.length).fill(null);
+    for (let i = period - 1; i < series.values.length; i++) {
+      let current = compare === Math.max ? -Infinity : Infinity;
+      let count = 0;
+      for (let j = i - period + 1; j <= i; j++) {
+        if (isValidNumber(series.values[j])) {
+          current = compare(current, series.values[j]);
+          count++;
+        }
+      }
+      if (count === period) values[i] = current;
+    }
+    return { kind: "series", values };
+  }
+  const other = asSeries(arg, length).values;
+  return {
+    kind: "series",
+    values: series.values.map((value, i) =>
+      isValidNumber(value) && isValidNumber(other[i])
+        ? compare(value, other[i])
+        : null,
+    ),
+  };
+}
+
+function seriesToChartData(values, candles) {
+  return values
+    .map((value, i) => ({ time: candles[i].time, value }))
+    .filter((p) => isValidNumber(p.value));
+}
+
+function isValidNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
 }
