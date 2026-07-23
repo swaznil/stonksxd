@@ -31,13 +31,8 @@
       <span id="series-title">No data loaded</span>
       <span id="ohlc-readout" class="ohlc-readout"></span>
     </div>
-    <div id="main-chart" class="chart-box"></div>
-
-    <div class="pane-label pane-label-sub">
-      <span>Oscillator pane</span>
-      <span id="osc-readout" class="ohlc-readout"></span>
-    </div>
-    <div id="osc-chart" class="chart-box chart-box-sub"></div>
+    <div id="main-chart" class="chart-box chart-box-main"></div>
+    <div id="panes-container"></div>
   </section>
 
   <aside class="sidebar">
@@ -50,6 +45,7 @@
           <option value="sma">Simple Moving Average (SMA)</option>
           <option value="ema">Exponential Moving Average (EMA)</option>
           <option value="bbands">Bollinger Bands</option>
+          <option value="volume">Volume</option>
           <option value="rsi">RSI</option>
           <option value="macd">MACD</option>
         </select>

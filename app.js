@@ -14,33 +14,57 @@ function nextColor() {
   return c;
 }
 
+const CHART_THEME = {
+  layout: {
+    background: { color: "#131722" },
+    textColor: "#d1d4dc",
+    fontFamily: "IBM Plex Mono, monospace",
+  },
+  grid: {
+    vertLines: { color: "#1c2030" },
+    horzLines: { color: "#1c2030" },
+  },
+  rightPriceScale: { borderColor: "#363a4a" },
+  timeScale: { borderColor: "#363a4a" },
+};
+
 let candles = [];
-let mainChart, oscChart, candleSeries;
+let mainChart, candleSeries;
 let indicators = [];
 let indicatorSeq = 0;
+let syncing = false;
 
 const mainChartEl = document.getElementById("main-chart");
-const oscChartEl = document.getElementById("osc-chart");
+const panesContainer = document.getElementById("panes-container");
+
+function allSubCharts() {
+  return indicators.filter((i) => i.kind === "pane").map((i) => i.pane.chart);
+}
+
+function subscribeSync(chart) {
+  chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+    if (syncing || !range) return;
+    syncing = true;
+    if (chart !== mainChart)
+      mainChart.timeScale().setVisibleLogicalRange(range);
+    allSubCharts().forEach((c) => {
+      if (c !== chart) c.timeScale().setVisibleLogicalRange(range);
+    });
+    syncing = false;
+  });
+}
 
 function createCharts() {
-  mainChart = LightweightCharts.createChart(mainChartEl, {
-    layout: {
-      background: { color: "#131722" },
-      textColor: "#d1d4dc",
-      fontFamily: "IBM Plex Mono, monospace",
-    },
-    grid: {
-      vertLines: { color: "#1c2030" },
-      horzLines: { color: "#1c2030" },
-    },
-    rightPriceScale: { borderColor: "#363a4a" },
-    timeScale: { borderColor: "#363a4a" },
-    crosshair: {
-      mode: LightweightCharts.CrosshairMode.Normal,
-      vertLine: { color: "#3179f5", labelBackgroundColor: "#3179f5" },
-      horzLine: { color: "#3179f5", labelBackgroundColor: "#3179f5" },
-    },
-  });
+  mainChart = LightweightCharts.createChart(
+    mainChartEl,
+    Object.assign({}, CHART_THEME, {
+      crosshair: {
+        mode: LightweightCharts.CrosshairMode.Normal,
+        vertLine: { color: "#3179f5", labelBackgroundColor: "#3179f5" },
+        horzLine: { color: "#3179f5", labelBackgroundColor: "#3179f5" },
+      },
+    }),
+  );
 
   candleSeries = mainChart.addCandlestickSeries({
     upColor: "#26a69a",
@@ -51,59 +75,121 @@ function createCharts() {
     wickDownColor: "#ef5350",
   });
 
-  oscChart = LightweightCharts.createChart(oscChartEl, {
-    layout: {
-      background: { color: "#131722" },
-      textColor: "#d1d4dc",
-      fontFamily: "IBM Plex Mono, monospace",
-    },
-    grid: {
-      vertLines: { color: "#1c2030" },
-      horzLines: { color: "#1c2030" },
-    },
-    rightPriceScale: { borderColor: "#363a4a" },
-    timeScale: { borderColor: "#363a4a" },
-  });
-
-  syncTimeScales(mainChart, oscChart);
-  syncTimeScales(oscChart, mainChart);
-
+  subscribeSync(mainChart);
   mainChart.subscribeCrosshairMove((param) =>
-    updateReadout(param, "ohlc-readout", true),
-  );
-  oscChart.subscribeCrosshairMove((param) =>
-    updateReadout(param, "osc-readout", false),
+    updateReadout(
+      param,
+      document.getElementById("ohlc-readout"),
+      candleSeries,
+      true,
+    ),
   );
 
   window.addEventListener("resize", resizeCharts);
   resizeCharts();
 }
 
-function syncTimeScales(source, target) {
-  source.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-    if (range) target.timeScale().setVisibleLogicalRange(range);
-  });
-}
-
 function resizeCharts() {
   if (mainChart)
     mainChart.resize(mainChartEl.clientWidth, mainChartEl.clientHeight);
-  if (oscChart)
-    oscChart.resize(oscChartEl.clientWidth, oscChartEl.clientHeight);
+  indicators
+    .filter((i) => i.kind === "pane")
+    .forEach((i) => {
+      const el = i.pane.chartEl;
+      i.pane.chart.resize(el.clientWidth, el.clientHeight);
+    });
 }
 
-function updateReadout(param, elementId, isMain) {
-  const el = document.getElementById(elementId);
-  if (!param.time || !param.seriesData || !isMain) {
-    if (!isMain) el.textContent = "";
+function updateReadout(param, el, series, isOhlc) {
+  if (!param.time || !param.seriesData) {
+    el.textContent = "";
     return;
   }
-  const data = param.seriesData.get(candleSeries);
+  const data = param.seriesData.get(series);
   if (!data) {
     el.textContent = "";
     return;
   }
-  el.textContent = `O ${data.open.toFixed(2)}  H ${data.high.toFixed(2)}  L ${data.low.toFixed(2)}  C ${data.close.toFixed(2)}`;
+  if (isOhlc) {
+    el.textContent = `O ${data.open.toFixed(2)}  H ${data.high.toFixed(2)}  L ${data.low.toFixed(2)}  C ${data.close.toFixed(2)}`;
+  } else {
+    const val = data.value !== undefined ? data.value : data.close;
+    el.textContent = val.toFixed(2);
+  }
+}
+
+function createPane(title) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "pane-wrapper";
+
+  const handle = document.createElement("div");
+  handle.className = "pane-resize-handle";
+
+  const label = document.createElement("div");
+  label.className = "pane-label";
+  const titleEl = document.createElement("span");
+  titleEl.textContent = title;
+  const readoutEl = document.createElement("span");
+  readoutEl.className = "ohlc-readout";
+  label.appendChild(titleEl);
+  label.appendChild(readoutEl);
+
+  const chartEl = document.createElement("div");
+  chartEl.className = "chart-box chart-box-pane";
+
+  wrapper.appendChild(handle);
+  wrapper.appendChild(label);
+  wrapper.appendChild(chartEl);
+  panesContainer.appendChild(wrapper);
+
+  const chart = LightweightCharts.createChart(chartEl, CHART_THEME);
+  subscribeSync(chart);
+
+  const mainRange = mainChart.timeScale().getVisibleLogicalRange();
+  if (mainRange) chart.timeScale().setVisibleLogicalRange(mainRange);
+
+  makeResizable(handle, chartEl, chart);
+
+  return {
+    wrapper,
+    chartEl,
+    chart,
+    titleEl,
+    readoutEl,
+    mainSeriesForReadout: null,
+  };
+}
+
+function makeResizable(handle, chartEl, chart) {
+  let startY = 0;
+  let startHeight = 0;
+
+  function onMove(e) {
+    const dy = e.clientY - startY;
+    const newHeight = Math.min(500, Math.max(60, startHeight + dy));
+    chartEl.style.height = newHeight + "px";
+    chart.resize(chartEl.clientWidth, newHeight);
+  }
+
+  function onUp() {
+    handle.classList.remove("active");
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+  }
+
+  handle.addEventListener("mousedown", (e) => {
+    startY = e.clientY;
+    startHeight = chartEl.clientHeight;
+    handle.classList.add("active");
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    e.preventDefault();
+  });
+}
+
+function removePane(pane) {
+  pane.chart.remove();
+  pane.wrapper.remove();
 }
 
 document.getElementById("csv-input").addEventListener("change", (event) => {
@@ -135,6 +221,7 @@ function loadData(rows, fileName) {
       high: Number(r.high),
       low: Number(r.low),
       close: Number(r.close),
+      volume: r.traded_quantity != null ? Number(r.traded_quantity) : 0,
     }))
     .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
 
@@ -153,15 +240,18 @@ function loadData(rows, fileName) {
   candleSeries.setData(candles);
   mainChart.timeScale().fitContent();
 
-  indicators.forEach((ind) =>
-    ind.series.forEach((s) => s.chart.removeSeries(s.series)),
-  );
+  indicators.forEach((ind) => {
+    if (ind.kind === "overlay") {
+      ind.series.forEach((s) => mainChart.removeSeries(s.series));
+    } else {
+      removePane(ind.pane);
+    }
+  });
   indicators = [];
   renderIndicatorList();
 
   document.getElementById("series-title").textContent = fileName.replace(
-    /\.csv$/i,
-    "",
+    /\.csv$/i,"",
   );
   document.getElementById("stat-rows").textContent = candles.length;
   document.getElementById("stat-start").textContent = candles[0].time;
@@ -184,6 +274,7 @@ const PARAM_SETS = {
     { id: "period", label: "Period", default: 20 },
     { id: "mult", label: "Std Dev Multiplier", default: 2 },
   ],
+  volume: [],
   rsi: [{ id: "period", label: "Period", default: 14 }],
   macd: [
     { id: "fast", label: "Fast Period", default: 12 },
@@ -233,16 +324,15 @@ document
 
 function addIndicator(type, params) {
   const id = "ind-" + indicatorSeq++;
-  const series = [];
-  let label = "";
+  let record = { id, type, label: "", kind: "overlay", series: [] };
 
   if (type === "sma") {
     const data = calcSMA(candles, params.period);
     const color = nextColor();
     const s = mainChart.addLineSeries({ color, lineWidth: 2 });
     s.setData(data);
-    series.push({ chart: mainChart, series: s, color });
-    label = `SMA(${params.period})`;
+    record.series.push({ series: s, color });
+    record.label = `SMA(${params.period})`;
   }
 
   if (type === "ema") {
@@ -250,8 +340,8 @@ function addIndicator(type, params) {
     const color = nextColor();
     const s = mainChart.addLineSeries({ color, lineWidth: 2 });
     s.setData(data);
-    series.push({ chart: mainChart, series: s, color });
-    label = `EMA(${params.period})`;
+    record.series.push({ series: s, color });
+    record.label = `EMA(${params.period})`;
   }
 
   if (type === "bbands") {
@@ -271,22 +361,52 @@ function addIndicator(type, params) {
     su.setData(upper);
     sm.setData(middle);
     sl.setData(lower);
-    series.push({ chart: mainChart, series: su, color });
-    series.push({ chart: mainChart, series: sm, color });
-    series.push({ chart: mainChart, series: sl, color });
-    label = `Bollinger(${params.period}, ${params.mult})`;
+    record.series.push(
+      { series: su, color },
+      { series: sm, color },
+      { series: sl, color },
+    );
+    record.label = `Bollinger(${params.period}, ${params.mult})`;
+  }
+
+  if (type === "volume") {
+    record.kind = "pane";
+    record.label = "Volume";
+    const pane = createPane(record.label);
+    const color = nextColor();
+    const data = candles.map((c) => ({
+      time: c.time,
+      value: c.volume,
+      color: c.close >= c.open ? "rgba(38,166,154,0.6)" : "rgba(239,83,80,0.6)",
+    }));
+    const s = pane.chart.addHistogramSeries({ color: "#26a69a" });
+    s.setData(data);
+    pane.chart.subscribeCrosshairMove((param) =>
+      updateReadout(param, pane.readoutEl, s, false),
+    );
+    record.series.push({ series: s, color });
+    record.pane = pane;
   }
 
   if (type === "rsi") {
+    record.kind = "pane";
+    record.label = `RSI(${params.period})`;
+    const pane = createPane(record.label);
     const data = calcRSI(candles, params.period);
     const color = nextColor();
-    const s = oscChart.addLineSeries({ color, lineWidth: 2 });
+    const s = pane.chart.addLineSeries({ color, lineWidth: 2 });
     s.setData(data);
-    series.push({ chart: oscChart, series: s, color });
-    label = `RSI(${params.period})`;
+    pane.chart.subscribeCrosshairMove((param) =>
+      updateReadout(param, pane.readoutEl, s, false),
+    );
+    record.series.push({ series: s, color });
+    record.pane = pane;
   }
 
   if (type === "macd") {
+    record.kind = "pane";
+    record.label = `MACD(${params.fast}, ${params.slow}, ${params.signal})`;
+    const pane = createPane(record.label);
     const { macdLine, signalLine, histogram } = calcMACD(
       candles,
       params.fast,
@@ -295,29 +415,39 @@ function addIndicator(type, params) {
     );
     const color = nextColor();
     const signalColor = nextColor();
-    const sMacd = oscChart.addLineSeries({ color, lineWidth: 2 });
-    const sSignal = oscChart.addLineSeries({
+    const sMacd = pane.chart.addLineSeries({ color, lineWidth: 2 });
+    const sSignal = pane.chart.addLineSeries({
       color: signalColor,
       lineWidth: 1,
     });
-    const sHist = oscChart.addHistogramSeries({ color: "#4a4e5c" });
+    const sHist = pane.chart.addHistogramSeries({ color: "#4a4e5c" });
     sMacd.setData(macdLine);
     sSignal.setData(signalLine);
     sHist.setData(histogram);
-    series.push({ chart: oscChart, series: sMacd, color });
-    series.push({ chart: oscChart, series: sSignal, color: signalColor });
-    series.push({ chart: oscChart, series: sHist, color: "#4a4e5c" });
-    label = `MACD(${params.fast}, ${params.slow}, ${params.signal})`;
+    pane.chart.subscribeCrosshairMove((param) =>
+      updateReadout(param, pane.readoutEl, sMacd, false),
+    );
+    record.series.push(
+      { series: sMacd, color },
+      { series: sSignal, color: signalColor },
+      { series: sHist, color: "#4a4e5c" },
+    );
+    record.pane = pane;
   }
 
-  indicators.push({ id, type, label, series });
+  indicators.push(record);
   renderIndicatorList();
+  resizeCharts();
 }
 
 function removeIndicator(id) {
   const ind = indicators.find((i) => i.id === id);
   if (!ind) return;
-  ind.series.forEach((s) => s.chart.removeSeries(s.series));
+  if (ind.kind === "overlay") {
+    ind.series.forEach((s) => mainChart.removeSeries(s.series));
+  } else {
+    removePane(ind.pane);
+  }
   indicators = indicators.filter((i) => i.id !== id);
   renderIndicatorList();
 }
