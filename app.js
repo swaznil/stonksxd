@@ -14,11 +14,25 @@ function nextColor() {
   return c;
 }
 
-const CHART_THEME = {
+const {
+  CandlestickSeries,
+  LineSeries,
+  HistogramSeries,
+  AreaSeries,
+  CrosshairMode,
+  LineStyle,
+} = LightweightCharts;
+
+const CHART_OPTIONS = {
   layout: {
     background: { color: "#131722" },
     textColor: "#d1d4dc",
     fontFamily: "IBM Plex Mono, monospace",
+    panes: {
+      separatorColor: "#363a4a",
+      separatorHoverColor: "rgba(44, 126, 249, 0.15)",
+      enableResize: true,
+    },
   },
   grid: {
     vertLines: { color: "#1c2030" },
@@ -26,50 +40,30 @@ const CHART_THEME = {
   },
   rightPriceScale: { borderColor: "#363a4a" },
   timeScale: { borderColor: "#363a4a" },
+  autoSize: true,
+  crosshair: {
+    mode: CrosshairMode.Normal,
+    vertLine: { color: "#3179f5", labelBackgroundColor: "#3179f5" },
+    horzLine: { color: "#3179f5", labelBackgroundColor: "#3179f5" },
+  },
 };
 
+const DEFAULT_PANE_HEIGHT = 160;
+
 let candles = [];
-let mainChart, candleSeries;
+let chart, candleSeries;
 let indicators = [];
 let indicatorSeq = 0;
-let syncing = false;
 const CUSTOM_KEY = "chartlab.customIndicators.v1";
 let customIndicators = loadCustomIndicators();
 let customVariables = [];
 
 const mainChartEl = document.getElementById("main-chart");
-const panesContainer = document.getElementById("panes-container");
-
-function allSubCharts() {
-  return indicators.filter((i) => i.kind === "pane").map((i) => i.pane.chart);
-}
-
-function subscribeSync(chart) {
-  chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-    if (syncing || !range) return;
-    syncing = true;
-    if (chart !== mainChart)
-      mainChart.timeScale().setVisibleLogicalRange(range);
-    allSubCharts().forEach((c) => {
-      if (c !== chart) c.timeScale().setVisibleLogicalRange(range);
-    });
-    syncing = false;
-  });
-}
 
 function createCharts() {
-  mainChart = LightweightCharts.createChart(
-    mainChartEl,
-    Object.assign({}, CHART_THEME, {
-      crosshair: {
-        mode: LightweightCharts.CrosshairMode.Normal,
-        vertLine: { color: "#3179f5", labelBackgroundColor: "#3179f5" },
-        horzLine: { color: "#3179f5", labelBackgroundColor: "#3179f5" },
-      },
-    }),
-  );
+  chart = LightweightCharts.createChart(mainChartEl, CHART_OPTIONS);
 
-  candleSeries = mainChart.addCandlestickSeries({
+  candleSeries = chart.addSeries(CandlestickSeries, {
     upColor: "#26a69a",
     downColor: "#ef5350",
     borderUpColor: "#26a69a",
@@ -78,32 +72,28 @@ function createCharts() {
     wickDownColor: "#ef5350",
   });
 
-  subscribeSync(mainChart);
-  mainChart.subscribeCrosshairMove((param) =>
+  chart.subscribeCrosshairMove((param) => {
     updateReadout(
       param,
       document.getElementById("ohlc-readout"),
       candleSeries,
       true,
-    ),
-  );
-
-  window.addEventListener("resize", resizeCharts);
-  resizeCharts();
-}
-
-function resizeCharts() {
-  if (mainChart)
-    mainChart.resize(mainChartEl.clientWidth, mainChartEl.clientHeight);
-  indicators
-    .filter((i) => i.kind === "pane")
-    .forEach((i) => {
-      const el = i.pane.chartEl;
-      i.pane.chart.resize(el.clientWidth, el.clientHeight);
+    );
+    indicators.forEach((ind) => {
+      if (ind.kind === "pane" && ind.paneLabel) {
+        updateReadout(
+          param,
+          ind.paneLabel.valueSpan,
+          ind.series[0].series,
+          false,
+        );
+      }
     });
+  });
 }
 
 function updateReadout(param, el, series, isOhlc) {
+  if (!el) return;
   if (!param.time || !param.seriesData) {
     el.textContent = "";
     return;
@@ -121,78 +111,22 @@ function updateReadout(param, el, series, isOhlc) {
   }
 }
 
-function createPane(title) {
-  const wrapper = document.createElement("div");
-  wrapper.className = "pane-wrapper";
-
-  const handle = document.createElement("div");
-  handle.className = "pane-resize-handle";
-
+function attachPaneLabel(pane, title) {
+  const paneEl = pane.getHTMLElement && pane.getHTMLElement();
+  if (!paneEl) return null;
+  if (getComputedStyle(paneEl).position === "static") {
+    paneEl.style.position = "relative";
+  }
   const label = document.createElement("div");
-  label.className = "pane-label";
-  const titleEl = document.createElement("span");
-  titleEl.textContent = title;
-  const readoutEl = document.createElement("span");
-  readoutEl.className = "ohlc-readout";
-  label.appendChild(titleEl);
-  label.appendChild(readoutEl);
-
-  const chartEl = document.createElement("div");
-  chartEl.className = "chart-box chart-box-pane";
-
-  wrapper.appendChild(handle);
-  wrapper.appendChild(label);
-  wrapper.appendChild(chartEl);
-  panesContainer.appendChild(wrapper);
-
-  const chart = LightweightCharts.createChart(chartEl, CHART_THEME);
-  subscribeSync(chart);
-
-  const mainRange = mainChart.timeScale().getVisibleLogicalRange();
-  if (mainRange) chart.timeScale().setVisibleLogicalRange(mainRange);
-
-  makeResizable(handle, chartEl, chart);
-
-  return {
-    wrapper,
-    chartEl,
-    chart,
-    titleEl,
-    readoutEl,
-    mainSeriesForReadout: null,
-  };
-}
-
-function makeResizable(handle, chartEl, chart) {
-  let startY = 0;
-  let startHeight = 0;
-
-  function onMove(e) {
-    const dy = e.clientY - startY;
-    const newHeight = Math.min(500, Math.max(60, startHeight + dy));
-    chartEl.style.height = newHeight + "px";
-    chart.resize(chartEl.clientWidth, newHeight);
-  }
-
-  function onUp() {
-    handle.classList.remove("active");
-    document.removeEventListener("mousemove", onMove);
-    document.removeEventListener("mouseup", onUp);
-  }
-
-  handle.addEventListener("mousedown", (e) => {
-    startY = e.clientY;
-    startHeight = chartEl.clientHeight;
-    handle.classList.add("active");
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-    e.preventDefault();
-  });
-}
-
-function removePane(pane) {
-  pane.chart.remove();
-  pane.wrapper.remove();
+  label.className = "pane-overlay-label";
+  const titleSpan = document.createElement("span");
+  titleSpan.textContent = title;
+  const valueSpan = document.createElement("span");
+  valueSpan.className = "ohlc-readout";
+  label.appendChild(titleSpan);
+  label.appendChild(valueSpan);
+  paneEl.appendChild(label);
+  return { container: label, titleSpan, valueSpan };
 }
 
 document.getElementById("csv-input").addEventListener("change", (event) => {
@@ -241,23 +175,24 @@ function loadData(rows, fileName) {
   }
 
   candleSeries.setData(candles);
-  mainChart.timeScale().fitContent();
+  chart.timeScale().fitContent();
 
   indicators.forEach((ind) => {
-    if (ind.kind === "overlay") {
-      ind.series.forEach((s) => mainChart.removeSeries(s.series));
-    } else {
-      removePane(ind.pane);
-    }
+    ind.series.forEach((s) => chart.removeSeries(s.series));
   });
   indicators = [];
   renderIndicatorList();
 
-  document.getElementById("series-title").textContent = fileName.replace(/\.csv$/i, "",);
+  document.getElementById("series-title").textContent = fileName.replace(
+    /\.csv$/i,
+    "",
+  );
   document.getElementById("stat-rows").textContent = candles.length;
   document.getElementById("stat-start").textContent = candles[0].time;
-  document.getElementById("stat-end").textContent =candles[candles.length - 1].time;
-  document.getElementById("stat-close").textContent =candles[candles.length - 1].close.toFixed(2);
+  document.getElementById("stat-end").textContent =
+    candles[candles.length - 1].time;
+  document.getElementById("stat-close").textContent =
+    candles[candles.length - 1].close.toFixed(2);
 
   setStatus(`Loaded ${candles.length} rows.`);
 }
@@ -325,6 +260,17 @@ document
     addIndicator(type, params);
   });
 
+function nextPaneIndex() {
+  return chart.panes().length;
+}
+
+function finalizePane(record, title) {
+  const pane = record.series[0].series.getPane();
+  pane.setHeight(DEFAULT_PANE_HEIGHT);
+  record.pane = pane;
+  record.paneLabel = attachPaneLabel(pane, title);
+}
+
 function addIndicator(type, params) {
   const id = "ind-" + indicatorSeq++;
   let record = { id, type, label: "", kind: "overlay", series: [] };
@@ -332,7 +278,7 @@ function addIndicator(type, params) {
   if (type === "sma") {
     const data = calcSMA(candles, params.period);
     const color = nextColor();
-    const s = mainChart.addLineSeries({ color, lineWidth: 2 });
+    const s = chart.addSeries(LineSeries, { color, lineWidth: 2 });
     s.setData(data);
     record.series.push({ series: s, color });
     record.label = `SMA(${params.period})`;
@@ -341,7 +287,7 @@ function addIndicator(type, params) {
   if (type === "ema") {
     const data = calcEMA(candles, params.period);
     const color = nextColor();
-    const s = mainChart.addLineSeries({ color, lineWidth: 2 });
+    const s = chart.addSeries(LineSeries, { color, lineWidth: 2 });
     s.setData(data);
     record.series.push({ series: s, color });
     record.label = `EMA(${params.period})`;
@@ -354,13 +300,13 @@ function addIndicator(type, params) {
       params.mult,
     );
     const color = nextColor();
-    const su = mainChart.addLineSeries({ color, lineWidth: 1 });
-    const sm = mainChart.addLineSeries({
+    const su = chart.addSeries(LineSeries, { color, lineWidth: 1 });
+    const sm = chart.addSeries(LineSeries, {
       color,
       lineWidth: 1,
-      lineStyle: LightweightCharts.LineStyle.Dashed,
+      lineStyle: LineStyle.Dashed,
     });
-    const sl = mainChart.addLineSeries({ color, lineWidth: 1 });
+    const sl = chart.addSeries(LineSeries, { color, lineWidth: 1 });
     su.setData(upper);
     sm.setData(middle);
     sl.setData(lower);
@@ -375,41 +321,34 @@ function addIndicator(type, params) {
   if (type === "volume") {
     record.kind = "pane";
     record.label = "Volume";
-    const pane = createPane(record.label);
-    const color = nextColor();
+    const paneIndex = nextPaneIndex();
     const data = candles.map((c) => ({
       time: c.time,
       value: c.volume,
       color: c.close >= c.open ? "rgba(38,166,154,0.6)" : "rgba(239,83,80,0.6)",
     }));
-    const s = pane.chart.addHistogramSeries({ color: "#26a69a" });
+    const s = chart.addSeries(HistogramSeries, { color: "#26a69a" }, paneIndex);
     s.setData(data);
-    pane.chart.subscribeCrosshairMove((param) =>
-      updateReadout(param, pane.readoutEl, s, false),
-    );
-    record.series.push({ series: s, color });
-    record.pane = pane;
+    record.series.push({ series: s, color: "#26a69a" });
+    finalizePane(record, record.label);
   }
 
   if (type === "rsi") {
     record.kind = "pane";
     record.label = `RSI(${params.period})`;
-    const pane = createPane(record.label);
+    const paneIndex = nextPaneIndex();
     const data = calcRSI(candles, params.period);
     const color = nextColor();
-    const s = pane.chart.addLineSeries({ color, lineWidth: 2 });
+    const s = chart.addSeries(LineSeries, { color, lineWidth: 2 }, paneIndex);
     s.setData(data);
-    pane.chart.subscribeCrosshairMove((param) =>
-      updateReadout(param, pane.readoutEl, s, false),
-    );
     record.series.push({ series: s, color });
-    record.pane = pane;
+    finalizePane(record, record.label);
   }
 
   if (type === "macd") {
     record.kind = "pane";
     record.label = `MACD(${params.fast}, ${params.slow}, ${params.signal})`;
-    const pane = createPane(record.label);
+    const paneIndex = nextPaneIndex();
     const { macdLine, signalLine, histogram } = calcMACD(
       candles,
       params.fast,
@@ -418,48 +357,51 @@ function addIndicator(type, params) {
     );
     const color = nextColor();
     const signalColor = nextColor();
-    const sMacd = pane.chart.addLineSeries({ color, lineWidth: 2 });
-    const sSignal = pane.chart.addLineSeries({
-      color: signalColor,
-      lineWidth: 1,
-    });
-    const sHist = pane.chart.addHistogramSeries({ color: "#4a4e5c" });
+    const sMacd = chart.addSeries(
+      LineSeries,
+      { color, lineWidth: 2 },
+      paneIndex,
+    );
+    const sSignal = chart.addSeries(
+      LineSeries,
+      { color: signalColor, lineWidth: 1 },
+      paneIndex,
+    );
+    const sHist = chart.addSeries(
+      HistogramSeries,
+      { color: "#4a4e5c" },
+      paneIndex,
+    );
     sMacd.setData(macdLine);
     sSignal.setData(signalLine);
     sHist.setData(histogram);
-    pane.chart.subscribeCrosshairMove((param) =>
-      updateReadout(param, pane.readoutEl, sMacd, false),
-    );
     record.series.push(
       { series: sMacd, color },
       { series: sSignal, color: signalColor },
       { series: sHist, color: "#4a4e5c" },
     );
-    record.pane = pane;
+    finalizePane(record, record.label);
   }
 
   if (type === "atr") {
     record.kind = "pane";
     record.label = `ATR(${params.period})`;
-    const pane = createPane(record.label);
+    const paneIndex = nextPaneIndex();
     const data = calcATR(candles, params.period);
     const color = nextColor();
-    const s = pane.chart.addLineSeries({ color, lineWidth: 2 });
+    const s = chart.addSeries(LineSeries, { color, lineWidth: 2 }, paneIndex);
     s.setData(data);
-    pane.chart.subscribeCrosshairMove((param) =>
-      updateReadout(param, pane.readoutEl, s, false),
-    );
     record.series.push({ series: s, color });
-    record.pane = pane;
+    finalizePane(record, record.label);
   }
 
   if (type === "vwap") {
     const data = calcVWAP(candles);
     const color = nextColor();
-    const s = mainChart.addLineSeries({
+    const s = chart.addSeries(LineSeries, {
       color,
       lineWidth: 2,
-      lineStyle: LightweightCharts.LineStyle.Dashed,
+      lineStyle: LineStyle.Dashed,
     });
     s.setData(data);
     record.series.push({ series: s, color });
@@ -469,56 +411,59 @@ function addIndicator(type, params) {
   if (type === "stoch") {
     record.kind = "pane";
     record.label = `Stochastic(${params.period})`;
-    const pane = createPane(record.label);
+    const paneIndex = nextPaneIndex();
     const { kLine, dLine } = calcStochastic(candles, params.period);
     const color = nextColor();
     const signalColor = nextColor();
-    const sK = pane.chart.addLineSeries({ color, lineWidth: 2 });
-    const sD = pane.chart.addLineSeries({ color: signalColor, lineWidth: 1 });
+    const sK = chart.addSeries(LineSeries, { color, lineWidth: 2 }, paneIndex);
+    const sD = chart.addSeries(
+      LineSeries,
+      { color: signalColor, lineWidth: 1 },
+      paneIndex,
+    );
     sK.setData(kLine);
     sD.setData(dLine);
-    pane.chart.subscribeCrosshairMove((param) =>
-      updateReadout(param, pane.readoutEl, sK, false),
-    );
     record.series.push(
       { series: sK, color },
       { series: sD, color: signalColor },
     );
-    record.pane = pane;
+    finalizePane(record, record.label);
   }
 
   if (type === "custom") {
     try {
-      const data = evaluateFormula(params.formula, candles, params.variables || []);
+      const data = evaluateFormula(
+        params.formula,
+        candles,
+        params.variables || [],
+      );
       if (data.length === 0)
         throw new Error("Formula produced no plottable values");
       record.kind = params.panel === "pane" ? "pane" : "overlay";
       record.label = params.name || params.formula;
       const color = params.color || nextColor();
       const width = Math.max(1, Math.min(5, Number(params.width) || 2));
-      const target = record.kind === "pane" ? createPane(record.label) : null;
-      const chart = target ? target.chart : mainChart;
+      const paneIndex = record.kind === "pane" ? nextPaneIndex() : 0;
       let s;
       if (params.draw === "histogram") {
-        s = chart.addHistogramSeries({ color });
+        s = chart.addSeries(HistogramSeries, { color }, paneIndex);
       } else if (params.draw === "area") {
-        s = chart.addAreaSeries({
-          lineColor: color,
-          topColor: color + "55",
-          bottomColor: color + "05",
-          lineWidth: width,
-        });
+        s = chart.addSeries(
+          AreaSeries,
+          {
+            lineColor: color,
+            topColor: color + "55",
+            bottomColor: color + "05",
+            lineWidth: width,
+          },
+          paneIndex,
+        );
       } else {
-        s = chart.addLineSeries({ color, lineWidth: width });
+        s = chart.addSeries(LineSeries, { color, lineWidth: width }, paneIndex);
       }
       s.setData(data);
-      if (target) {
-        target.chart.subscribeCrosshairMove((param) =>
-          updateReadout(param, target.readoutEl, s, false),
-        );
-        record.pane = target;
-      }
       record.series.push({ series: s, color });
+      if (record.kind === "pane") finalizePane(record, record.label);
     } catch (err) {
       setStatus("Custom indicator error: " + err.message);
       return;
@@ -527,20 +472,28 @@ function addIndicator(type, params) {
 
   indicators.push(record);
   renderIndicatorList();
-  resizeCharts();
 }
 
 function removeIndicator(id) {
   const ind = indicators.find((i) => i.id === id);
   if (!ind) return;
-  if (ind.kind === "overlay") {
-    ind.series.forEach((s) => mainChart.removeSeries(s.series));
-  } else {
-    removePane(ind.pane);
+  let paneIndex = null;
+  if (ind.kind === "pane" && ind.pane) {
+    try {
+      paneIndex = ind.pane.paneIndex();
+    } catch (_err) {
+      paneIndex = null;
+    }
+  }
+  ind.series.forEach((s) => chart.removeSeries(s.series));
+
+  if (paneIndex !== null) {
+    try {
+      chart.removePane(paneIndex);
+    } catch (_err) {}
   }
   indicators = indicators.filter((i) => i.id !== id);
   renderIndicatorList();
-  requestAnimationFrame(resizeCharts);
 }
 
 function renderIndicatorList() {
@@ -584,7 +537,10 @@ document.getElementById("formula-modal").addEventListener("click", (e) => {
 });
 
 function addVariableFromForm() {
-  const name = document.getElementById("variable-name").value.trim().toUpperCase();
+  const name = document
+    .getElementById("variable-name")
+    .value.trim()
+    .toUpperCase();
   const formula = document.getElementById("variable-formula").value.trim();
   if (!/^[A-Z]$/.test(name)) {
     setStatus("Variable must be A through Z.");
@@ -611,7 +567,9 @@ function editVariable(name) {
 }
 
 function removeVariable(name) {
-  customVariables = customVariables.filter((variable) => variable.name !== name);
+  customVariables = customVariables.filter(
+    (variable) => variable.name !== name,
+  );
   renderVariableList();
 }
 
@@ -756,7 +714,8 @@ function closeCustomModal() {
 
 function readCustomForm() {
   return {
-    name: document.getElementById("custom-name").value.trim() || "Custom Indicator",
+    name:
+      document.getElementById("custom-name").value.trim() || "Custom Indicator",
     formula: document.getElementById("custom-formula").value.trim(),
     panel: document.getElementById("custom-panel").value,
     draw: document.getElementById("custom-draw").value,

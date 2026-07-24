@@ -328,7 +328,13 @@ function tokenizeFormula(formula) {
   return tokens;
 }
 
-function evalFormulaNode(node, candles, variableMap = new Map(), variableCache = new Map(), stack = []) {
+function evalFormulaNode(
+  node,
+  candles,
+  variableMap = new Map(),
+  variableCache = new Map(),
+  stack = [],
+) {
   if (node.type === "number") return { kind: "scalar", value: node.value };
   if (node.type === "ident") {
     const name = node.name.toUpperCase();
@@ -363,7 +369,9 @@ function evalFormulaNode(node, candles, variableMap = new Map(), variableCache =
 function evalVariable(name, candles, variableMap, variableCache, stack) {
   if (variableCache.has(name)) return variableCache.get(name);
   if (stack.includes(name)) {
-    throw new Error(`Variable cycle detected: ${[...stack, name].join(" -> ")}`);
+    throw new Error(
+      `Variable cycle detected: ${[...stack, name].join(" -> ")}`,
+    );
   }
   const formula = variableMap.get(name);
   const result = evalFormulaRaw(formula, candles, variableMap, variableCache, [
