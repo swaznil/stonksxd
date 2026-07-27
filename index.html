@@ -86,15 +86,23 @@
       </table>
     </div>
 
-    <div class="panel">
-      <h2>Custom Indicators</h2>
-      <button id="new-custom-btn" class="primary-btn" type="button">Create New Indicator</button>
+<div class="panel">
+  <h2>Custom Indicators</h2>
+  <button id="new-custom-btn" class="primary-btn" type="button">Create New Indicator</button>
 
-      <h3 class="panel-subheading">Saved Indicators</h3>
-      <ul id="saved-custom-list" class="indicator-list">
-        <li class="empty-note">No saved indicators.</li>
-      </ul>
-    </div>
+  <div class="side-grid" style="margin-top: 10px;">
+    <button id="export-custom-btn" class="secondary-btn compact-btn" type="button">Export</button>
+    <label id="import-custom-label" class="secondary-btn compact-btn import-label" for="import-custom-input">
+      Import
+    </label>
+    <input id="import-custom-input" type="file" accept="application/json" hidden />
+  </div>
+
+  <h3 class="panel-subheading">Saved Indicators</h3>
+  <ul id="saved-custom-list" class="indicator-list">
+    <li class="empty-note">No saved indicators.</li>
+  </ul>
+</div>
   </aside>
 </main>
 
@@ -136,6 +144,13 @@
 
     <form id="custom-form" class="custom-form">
       <section class="builder-main">
+        <div class="form-row">
+          <label for="preset-select">Load Preset</label>
+          <select id="preset-select">
+            <option value="">Start from scratch...</option>
+          </select>
+        </div>
+
         <div class="form-row">
           <label for="custom-name">Name</label>
           <input id="custom-name" type="text" value="My Indicator" required />

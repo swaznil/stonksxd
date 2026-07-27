@@ -1,3 +1,216 @@
+const PRESET_INDICATORS = [
+  {
+    name: "SMA (20)",
+    formula: "SMA(close,20)",
+    panel: "overlay",
+    draw: "line",
+    color: "#3179f5",
+    width: 2,
+    variables: [],
+  },
+  {
+    name: "EMA (20)",
+    formula: "EMA(close,20)",
+    panel: "overlay",
+    draw: "line",
+    color: "#e0a537",
+    width: 2,
+    variables: [],
+  },
+  {
+    name: "Bollinger Upper (20, 2)",
+    formula: "A+2*STDEV(close,20)",
+    panel: "overlay",
+    draw: "line",
+    color: "#7e57c2",
+    width: 1,
+    variables: [{ name: "A", formula: "SMA(close,20)" }],
+  },
+  {
+    name: "Bollinger Middle (20)",
+    formula: "SMA(close,20)",
+    panel: "overlay",
+    draw: "line",
+    color: "#7e57c2",
+    width: 1,
+    variables: [],
+  },
+  {
+    name: "Bollinger Lower (20, 2)",
+    formula: "A-2*STDEV(close,20)",
+    panel: "overlay",
+    draw: "line",
+    color: "#7e57c2",
+    width: 1,
+    variables: [{ name: "A", formula: "SMA(close,20)" }],
+  },
+
+  {
+    name: "RSI (14)",
+    formula: "RSI(close,14)",
+    panel: "pane",
+    draw: "line",
+    color: "#42a5f5",
+    width: 2,
+    variables: [],
+  },
+
+  {
+    name: "MACD Line (12, 26)",
+    formula: "A-B",
+    panel: "pane",
+    draw: "line",
+    color: "#3179f5",
+    width: 2,
+    variables: [
+      { name: "A", formula: "EMA(close,12)" },
+      { name: "B", formula: "EMA(close,26)" },
+    ],
+  },
+  {
+    name: "MACD Signal (9)",
+    formula: "EMA(A-B,9)",
+    panel: "pane",
+    draw: "line",
+    color: "#e0a537",
+    width: 1,
+    variables: [
+      { name: "A", formula: "EMA(close,12)" },
+      { name: "B", formula: "EMA(close,26)" },
+    ],
+  },
+  {
+    name: "MACD Histogram (12, 26, 9)",
+    formula: "(A-B)-EMA(A-B,9)",
+    panel: "pane",
+    draw: "histogram",
+    color: "#787b86",
+    width: 1,
+    variables: [
+      { name: "A", formula: "EMA(close,12)" },
+      { name: "B", formula: "EMA(close,26)" },
+    ],
+  },
+
+  {
+    name: "ATR (14)",
+    formula: "EMA(ABS(high-low),14)",
+    panel: "pane",
+    draw: "line",
+    color: "#8d6e63",
+    width: 2,
+    variables: [],
+  },
+];
+
+function renderPresetOptions() {
+  const select = document.getElementById("preset-select");
+  if (!select) return;
+
+  select.innerHTML = '<option value="">Start from scratch...</option>';
+  PRESET_INDICATORS.forEach((preset, i) => {
+    const option = document.createElement("option");
+    option.value = String(i);
+    option.textContent = preset.name;
+    select.appendChild(option);
+  });
+}
+
+function applyPreset(index) {
+  const preset = PRESET_INDICATORS[index];
+  if (!preset) return;
+
+  document.getElementById("custom-name").value = preset.name;
+  document.getElementById("custom-formula").value = preset.formula;
+  document.getElementById("custom-panel").value = preset.panel;
+  document.getElementById("custom-draw").value = preset.draw;
+  document.getElementById("custom-color").value = preset.color;
+  document.getElementById("custom-width").value = preset.width;
+
+  customVariables = preset.variables.map((v) => ({ ...v }));
+  renderVariableList();
+}
+
+function downloadJSON(filename, data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportCustomIndicators() {
+  if (customIndicators.length === 0) {
+    setStatus("No saved custom indicators to export.");
+    return;
+  }
+  downloadJSON("stonksxd-custom-indicators.json", customIndicators);
+  setStatus(`Exported ${customIndicators.length} custom indicator(s).`);
+}
+
+function isValidIndicatorDef(def) {
+  return (
+    def &&
+    typeof def.name === "string" &&
+    typeof def.formula === "string" &&
+    (def.panel === "overlay" || def.panel === "pane") &&
+    ["line", "histogram", "area"].includes(def.draw) &&
+    typeof def.color === "string" &&
+    Number.isFinite(Number(def.width)) &&
+    Array.isArray(def.variables || [])
+  );
+}
+
+function importCustomIndicatorsFromFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const list = Array.isArray(parsed) ? parsed : [parsed];
+      const valid = list.filter(isValidIndicatorDef).map((def) => ({
+        name: def.name,
+        formula: def.formula,
+        panel: def.panel,
+        draw: def.draw,
+        color: def.color,
+        width: Number(def.width) || 2,
+        variables: (def.variables || []).filter(
+          (v) => v && /^[A-Z]$/.test(v.name) && typeof v.formula === "string",
+        ),
+      }));
+
+      if (valid.length === 0) {
+        setStatus("No valid indicators found in that file.");
+        return;
+      }
+
+      const merged = [...valid, ...customIndicators];
+      const seen = new Set();
+      customIndicators = merged
+        .filter((def) => {
+          const key = def.name + "::" + def.formula;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .slice(0, 50);
+
+      localStorage.setItem(CUSTOM_KEY, JSON.stringify(customIndicators));
+      renderCustomOptions();
+      setStatus(`Imported ${valid.length} indicator(s).`);
+    } catch (err) {
+      setStatus("Import error: " + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
 function calcSMA(candles, period) {
   const out = [];
   for (let i = 0; i < candles.length; i++) {
@@ -607,34 +820,6 @@ function rollingRsi(series, period) {
     }
   }
   return { kind: "series", values };
-}
-
-function rollingExtreme(series, arg, length, compare) {
-  if (arg && arg.kind === "scalar") {
-    const period = asPeriod(arg);
-    const values = Array(series.values.length).fill(null);
-    for (let i = period - 1; i < series.values.length; i++) {
-      let current = compare === Math.max ? -Infinity : Infinity;
-      let count = 0;
-      for (let j = i - period + 1; j <= i; j++) {
-        if (isValidNumber(series.values[j])) {
-          current = compare(current, series.values[j]);
-          count++;
-        }
-      }
-      if (count === period) values[i] = current;
-    }
-    return { kind: "series", values };
-  }
-  const other = asSeries(arg, length).values;
-  return {
-    kind: "series",
-    values: series.values.map((value, i) =>
-      isValidNumber(value) && isValidNumber(other[i])
-        ? compare(value, other[i])
-        : null,
-    ),
-  };
 }
 
 function seriesToChartData(values, candles) {

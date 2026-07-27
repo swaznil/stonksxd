@@ -789,6 +789,8 @@ function openCustomModal() {
   customVariables = [];
   renderVariableList();
   renderVariableInsertOptions();
+  renderPresetOptions();
+  document.getElementById("preset-select").value = "";
   document.getElementById("custom-modal").hidden = false;
   document.getElementById("custom-formula").focus();
 }
@@ -882,6 +884,10 @@ function renderCustomOptions() {
 function setupCustomModal() {
   const modal = document.getElementById("custom-modal");
   const form = document.getElementById("custom-form");
+
+  document.getElementById("preset-select").addEventListener("change", (e) => {
+    if (e.target.value !== "") applyPreset(Number(e.target.value));
+  });
 
   document
     .getElementById("custom-close")
@@ -980,6 +986,18 @@ document.getElementById("formula-modal").addEventListener("click", (e) => {
 document
   .getElementById("new-custom-btn")
   .addEventListener("click", openCustomModal);
+
+document
+  .getElementById("export-custom-btn")
+  .addEventListener("click", exportCustomIndicators);
+
+document
+  .getElementById("import-custom-input")
+  .addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) importCustomIndicatorsFromFile(file);
+    e.target.value = "";
+  });
 
 function init() {
   createCharts();
