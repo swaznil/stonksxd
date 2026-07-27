@@ -7,6 +7,19 @@ const COLORS = [
   "#5c6bc0",
   "#26c6da",
 ];
+
+const DUMMY_STOCKS = [
+  { name: "SAMPLE01", file: "data/sample01.csv" },
+  { name: "SAMPLE02", file: "data/sample02.csv" },
+  { name: "SAMPLE03", file: "data/sample03.csv" },
+  { name: "SAMPLE04", file: "data/sample04.csv" },
+  { name: "SAMPLE05", file: "data/sample05.csv" },
+];
+
+const LAST_STOCK_KEY = "chartlab.lastStock.v1";
+const CUSTOM_KEY = "chartlab.customIndicators.v1";
+const DEFAULT_PANE_HEIGHT = 160;
+
 let colorIndex = 0;
 function nextColor() {
   const c = COLORS[colorIndex % COLORS.length];
@@ -48,105 +61,193 @@ const CHART_OPTIONS = {
   },
 };
 
-const DEFAULT_PANE_HEIGHT = 160;
-
 let candles = [];
-let chart, candleSeries;
+let chart = null;
+let candleSeries = null;
 let indicators = [];
 let indicatorSeq = 0;
-const CUSTOM_KEY = "chartlab.customIndicators.v1";
 let customIndicators = loadCustomIndicators();
 let customVariables = [];
 let drawingManager = null;
 
 const mainChartEl = document.getElementById("main-chart");
+const fileInputEl = document.getElementById("csv-input");
+const fileNameEl = document.getElementById("file-name");
+const stockModal = document.getElementById("stock-modal-backdrop");
+const stockBtn = document.getElementById("stock-selector-btn");
+const stockSearchInput = document.getElementById("stock-search-input");
+const stockListEl = document.getElementById("stock-list");
+const stockLabelEl = document.getElementById("stock-current-label");
 
-function createCharts() {
-  chart = LightweightCharts.createChart(mainChartEl, CHART_OPTIONS);
-
-  candleSeries = chart.addSeries(CandlestickSeries, {
-    upColor: "#26a69a",
-    downColor: "#ef5350",
-    borderUpColor: "#26a69a",
-    borderDownColor: "#ef5350",
-    wickUpColor: "#26a69a",
-    wickDownColor: "#ef5350",
-  });
-
-  chart.subscribeCrosshairMove((param) => {
-    updateReadout(
-      param,
-      document.getElementById("ohlc-readout"),
-      candleSeries,
-      true,
-    );
-    indicators.forEach((ind) => {
-      if (ind.kind === "pane" && ind.paneLabel) {
-        updateReadout(
-          param,
-          ind.paneLabel.valueSpan,
-          ind.series[0].series,
-          false,
-        );
-      }
-    });
-  });
-
-  drawingManager = new DrawingToolManager(chart, candleSeries, mainChartEl);
-  buildDrawingToolbar(document.getElementById("drawing-toolbar"), drawingManager);
+function setStatus(msg) {
+  const el = document.getElementById("status-msg");
+  if (el) el.textContent = msg;
 }
 
 function updateReadout(param, el, series, isOhlc) {
   if (!el) return;
+
   if (!param.time || !param.seriesData) {
     el.textContent = "";
     return;
   }
+
   const data = param.seriesData.get(series);
   if (!data) {
     el.textContent = "";
     return;
   }
+
   if (isOhlc) {
     el.textContent = `O ${data.open.toFixed(2)}  H ${data.high.toFixed(2)}  L ${data.low.toFixed(2)}  C ${data.close.toFixed(2)}`;
   } else {
     const val = data.value !== undefined ? data.value : data.close;
-    el.textContent = val.toFixed(2);
+    el.textContent = Number(val).toFixed(2);
   }
 }
 
 function attachPaneLabel(pane, title) {
   const paneEl = pane.getHTMLElement && pane.getHTMLElement();
   if (!paneEl) return null;
+
   if (getComputedStyle(paneEl).position === "static") {
     paneEl.style.position = "relative";
   }
+
   const label = document.createElement("div");
   label.className = "pane-overlay-label";
+
   const titleSpan = document.createElement("span");
   titleSpan.textContent = title;
+
   const valueSpan = document.createElement("span");
   valueSpan.className = "ohlc-readout";
+
   label.appendChild(titleSpan);
   label.appendChild(valueSpan);
   paneEl.appendChild(label);
+
   return { container: label, titleSpan, valueSpan };
 }
 
-document.getElementById("csv-input").addEventListener("change", (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-  document.getElementById("file-name").textContent = file.name;
-  Papa.parse(file, {
+function parseCsvText(csvText, fileName, label) {
+  Papa.parse(csvText, {
     header: true,
     dynamicTyping: true,
     skipEmptyLines: true,
-    complete: (results) => loadData(results.data, file.name),
+    complete: (results) => loadData(results.data, fileName, label),
     error: (err) => setStatus("Parse error: " + err.message),
   });
+}
+
+function loadStockByName(name) {
+  const stock = DUMMY_STOCKS.find(
+    (s) => s.name.toLowerCase() === String(name).toLowerCase(),
+  );
+
+  if (!stock) {
+    setStatus(`Unknown stock: ${name}`);
+    return Promise.resolve();
+  }
+
+  setStatus(`Loading ${stock.name}...`);
+
+  return fetch(stock.file, { cache: "no-store" })
+    .then((response) => {
+      if (!response.ok) throw new Error(`Could not load ${stock.file}`);
+      return response.text();
+    })
+    .then((csvText) => {
+      parseCsvText(csvText, stock.file, stock.name);
+      localStorage.setItem(LAST_STOCK_KEY, stock.name);
+      if (stockLabelEl) stockLabelEl.textContent = stock.name;
+    })
+    .catch((err) => {
+      setStatus(err.message);
+    });
+}
+
+function openStockModal() {
+  if (!stockModal) return;
+  stockModal.hidden = false;
+  if (stockSearchInput) {
+    stockSearchInput.value = "";
+    renderStockList();
+    stockSearchInput.focus();
+  }
+}
+
+function closeStockModal() {
+  if (!stockModal) return;
+  stockModal.hidden = true;
+}
+
+function renderStockList() {
+  if (!stockListEl || !stockSearchInput) return;
+
+  const q = stockSearchInput.value.trim().toLowerCase();
+  const filtered = DUMMY_STOCKS.filter((s) =>
+    s.name.toLowerCase().includes(q),
+  );
+
+  stockListEl.innerHTML = "";
+
+  if (filtered.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "stock-empty";
+    empty.textContent = "No matches.";
+    stockListEl.appendChild(empty);
+    return;
+  }
+
+  filtered.forEach((stock) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "stock-row";
+    row.innerHTML = `<span>${stock.name}</span><span class="stock-file">${stock.file}</span>`;
+    row.addEventListener("click", async () => {
+      await loadStockByName(stock.name);
+      closeStockModal();
+    });
+    stockListEl.appendChild(row);
+  });
+}
+
+if (stockBtn) {
+  stockBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    openStockModal();
+  });
+}
+
+const stockCloseBtn = document.getElementById("stock-close-btn");
+if (stockCloseBtn) {
+  stockCloseBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    closeStockModal();
+  });
+}
+
+if (stockModal) {
+  stockModal.addEventListener("click", (e) => {
+    if (e.target === stockModal) closeStockModal();
+  });
+}
+
+if (stockSearchInput) {
+  stockSearchInput.addEventListener("input", renderStockList);
+  stockSearchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeStockModal();
+  });
+}
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && stockModal && !stockModal.hidden) {
+    closeStockModal();
+  }
 });
 
-function loadData(rows, fileName) {
+function loadData(rows, fileName, label = fileName) {
   const parsed = rows
     .filter(
       (r) =>
@@ -189,23 +290,72 @@ function loadData(rows, fileName) {
 
   if (drawingManager) drawingManager.clearAll();
 
-  document.getElementById("series-title").textContent = fileName.replace(
-    /\.csv$/i,
-    "",
-  );
+  const seriesTitle = document.getElementById("series-title");
+  if (seriesTitle) seriesTitle.textContent = label;
+
+  if (stockLabelEl && DUMMY_STOCKS.some((s) => s.name === label)) {
+    stockLabelEl.textContent = label;
+  }
+
   document.getElementById("stat-rows").textContent = candles.length;
   document.getElementById("stat-start").textContent = candles[0].time;
-  document.getElementById("stat-end").textContent =
-    candles[candles.length - 1].time;
-  document.getElementById("stat-close").textContent =
-    candles[candles.length - 1].close.toFixed(2);
+  document.getElementById("stat-end").textContent = candles[candles.length - 1].time;
+  document.getElementById("stat-close").textContent = candles[candles.length - 1].close.toFixed(2);
 
   setStatus(`Loaded ${candles.length} rows.`);
 }
 
-function setStatus(msg) {
-  document.getElementById("status-msg").textContent = msg;
+function createCharts() {
+  chart = LightweightCharts.createChart(mainChartEl, CHART_OPTIONS);
+
+  candleSeries = chart.addSeries(CandlestickSeries, {
+    upColor: "#26a69a",
+    downColor: "#ef5350",
+    borderUpColor: "#26a69a",
+    borderDownColor: "#ef5350",
+    wickUpColor: "#26a69a",
+    wickDownColor: "#ef5350",
+  });
+
+  chart.subscribeCrosshairMove((param) => {
+    updateReadout(
+      param,
+      document.getElementById("ohlc-readout"),
+      candleSeries,
+      true,
+    );
+
+    indicators.forEach((ind) => {
+      if (ind.kind === "pane" && ind.paneLabel) {
+        updateReadout(
+          param,
+          ind.paneLabel.valueSpan,
+          ind.series[0].series,
+          false,
+        );
+      }
+    });
+  });
+
+  drawingManager = new DrawingToolManager(chart, candleSeries, mainChartEl);
+  buildDrawingToolbar(document.getElementById("drawing-toolbar"), drawingManager);
 }
+
+fileInputEl.addEventListener("change", (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  fileNameEl.textContent = file.name;
+
+  Papa.parse(file, {
+    header: true,
+    dynamicTyping: true,
+    skipEmptyLines: true,
+    complete: (results) =>
+      loadData(results.data, file.name, file.name.replace(/\.csv$/i, "")),
+    error: (err) => setStatus("Parse error: " + err.message),
+  });
+});
 
 const PARAM_SETS = {
   sma: [{ id: "period", label: "Period", default: 20 }],
@@ -230,41 +380,24 @@ const PARAM_SETS = {
 function renderParamFields() {
   const type = document.getElementById("ind-type").value;
   const container = document.getElementById("param-fields");
+  if (!container) return;
+
   container.innerHTML = "";
   PARAM_SETS[type].forEach((p) => {
     const label = document.createElement("label");
     label.textContent = p.label;
     label.setAttribute("for", "param-" + p.id);
+
     const input = document.createElement("input");
     input.type = "number";
     input.id = "param-" + p.id;
     input.value = p.default;
     input.step = "any";
+
     container.appendChild(label);
     container.appendChild(input);
   });
 }
-
-document
-  .getElementById("ind-type")
-  .addEventListener("change", renderParamFields);
-renderParamFields();
-
-document
-  .getElementById("indicator-form")
-  .addEventListener("submit", (event) => {
-    event.preventDefault();
-    if (candles.length === 0) {
-      setStatus("Load a CSV before adding indicators.");
-      return;
-    }
-    const type = document.getElementById("ind-type").value;
-    const params = {};
-    PARAM_SETS[type].forEach((p) => {
-      params[p.id] = Number(document.getElementById("param-" + p.id).value);
-    });
-    addIndicator(type, params);
-  });
 
 function nextPaneIndex() {
   return chart.panes().length;
@@ -279,7 +412,7 @@ function finalizePane(record, title) {
 
 function addIndicator(type, params) {
   const id = "ind-" + indicatorSeq++;
-  let record = { id, type, label: "", kind: "overlay", series: [] };
+  const record = { id, type, label: "", kind: "overlay", series: [] };
 
   if (type === "sma") {
     const data = calcSMA(candles, params.period);
@@ -331,7 +464,10 @@ function addIndicator(type, params) {
     const data = candles.map((c) => ({
       time: c.time,
       value: c.volume,
-      color: c.close >= c.open ? "rgba(38,166,154,0.6)" : "rgba(239,83,80,0.6)",
+      color:
+        c.close >= c.open
+          ? "rgba(38,166,154,0.6)"
+          : "rgba(239,83,80,0.6)",
     }));
     const s = chart.addSeries(HistogramSeries, { color: "#26a69a" }, paneIndex);
     s.setData(data);
@@ -363,21 +499,9 @@ function addIndicator(type, params) {
     );
     const color = nextColor();
     const signalColor = nextColor();
-    const sMacd = chart.addSeries(
-      LineSeries,
-      { color, lineWidth: 2 },
-      paneIndex,
-    );
-    const sSignal = chart.addSeries(
-      LineSeries,
-      { color: signalColor, lineWidth: 1 },
-      paneIndex,
-    );
-    const sHist = chart.addSeries(
-      HistogramSeries,
-      { color: "#4a4e5c" },
-      paneIndex,
-    );
+    const sMacd = chart.addSeries(LineSeries, { color, lineWidth: 2 }, paneIndex);
+    const sSignal = chart.addSeries(LineSeries, { color: signalColor, lineWidth: 1 }, paneIndex);
+    const sHist = chart.addSeries(HistogramSeries, { color: "#4a4e5c" }, paneIndex);
     sMacd.setData(macdLine);
     sSignal.setData(signalLine);
     sHist.setData(histogram);
@@ -422,11 +546,7 @@ function addIndicator(type, params) {
     const color = nextColor();
     const signalColor = nextColor();
     const sK = chart.addSeries(LineSeries, { color, lineWidth: 2 }, paneIndex);
-    const sD = chart.addSeries(
-      LineSeries,
-      { color: signalColor, lineWidth: 1 },
-      paneIndex,
-    );
+    const sD = chart.addSeries(LineSeries, { color: signalColor, lineWidth: 1 }, paneIndex);
     sK.setData(kLine);
     sD.setData(dLine);
     record.series.push(
@@ -443,13 +563,15 @@ function addIndicator(type, params) {
         candles,
         params.variables || [],
       );
-      if (data.length === 0)
-        throw new Error("Formula produced no plottable values");
+      if (data.length === 0) throw new Error("Formula produced no plottable values");
+
       record.kind = params.panel === "pane" ? "pane" : "overlay";
       record.label = params.name || params.formula;
+
       const color = params.color || nextColor();
       const width = Math.max(1, Math.min(5, Number(params.width) || 2));
       const paneIndex = record.kind === "pane" ? nextPaneIndex() : 0;
+
       let s;
       if (params.draw === "histogram") {
         s = chart.addSeries(HistogramSeries, { color }, paneIndex);
@@ -467,8 +589,10 @@ function addIndicator(type, params) {
       } else {
         s = chart.addSeries(LineSeries, { color, lineWidth: width }, paneIndex);
       }
+
       s.setData(data);
       record.series.push({ series: s, color });
+
       if (record.kind === "pane") finalizePane(record, record.label);
     } catch (err) {
       setStatus("Custom indicator error: " + err.message);
@@ -483,6 +607,7 @@ function addIndicator(type, params) {
 function removeIndicator(id) {
   const ind = indicators.find((i) => i.id === id);
   if (!ind) return;
+
   let paneIndex = null;
   if (ind.kind === "pane" && ind.pane) {
     try {
@@ -491,6 +616,7 @@ function removeIndicator(id) {
       paneIndex = null;
     }
   }
+
   ind.series.forEach((s) => chart.removeSeries(s.series));
 
   if (paneIndex !== null) {
@@ -498,13 +624,17 @@ function removeIndicator(id) {
       chart.removePane(paneIndex);
     } catch (_err) {}
   }
+
   indicators = indicators.filter((i) => i.id !== id);
   renderIndicatorList();
 }
 
 function renderIndicatorList() {
   const list = document.getElementById("indicator-list");
+  if (!list) return;
+
   list.innerHTML = "";
+
   if (indicators.length === 0) {
     const li = document.createElement("li");
     li.className = "empty-note";
@@ -512,54 +642,46 @@ function renderIndicatorList() {
     list.appendChild(li);
     return;
   }
+
   indicators.forEach((ind) => {
     const li = document.createElement("li");
+
     const left = document.createElement("span");
     const swatch = document.createElement("span");
     swatch.className = "swatch";
     swatch.style.background = ind.series[0].color;
     left.appendChild(swatch);
     left.appendChild(document.createTextNode(ind.label));
+
     const btn = document.createElement("button");
     btn.textContent = "Remove";
     btn.addEventListener("click", () => removeIndicator(ind.id));
+
     li.appendChild(left);
     li.appendChild(btn);
     list.appendChild(li);
   });
 }
 
-document.getElementById("formula-help-btn").addEventListener("click", () => {
-  document.getElementById("formula-modal").hidden = false;
-});
-
-document.getElementById("formula-close").addEventListener("click", () => {
-  document.getElementById("formula-modal").hidden = true;
-});
-
-document.getElementById("formula-modal").addEventListener("click", (e) => {
-  if (e.target.id === "formula-modal")
-    document.getElementById("formula-modal").hidden = true;
-});
-
 function addVariableFromForm() {
-  const name = document
-    .getElementById("variable-name")
-    .value.trim()
-    .toUpperCase();
+  const name = document.getElementById("variable-name").value.trim().toUpperCase();
   const formula = document.getElementById("variable-formula").value.trim();
+
   if (!/^[A-Z]$/.test(name)) {
     setStatus("Variable must be A through Z.");
     return;
   }
+
   if (!formula) {
     setStatus("Enter a formula for variable " + name + ".");
     return;
   }
+
   customVariables = customVariables
     .filter((item) => item.name !== name)
     .concat([{ name, formula }])
     .sort((a, b) => a.name.localeCompare(b.name));
+
   document.getElementById("variable-formula").value = "";
   renderVariableList();
 }
@@ -573,9 +695,7 @@ function editVariable(name) {
 }
 
 function removeVariable(name) {
-  customVariables = customVariables.filter(
-    (variable) => variable.name !== name,
-  );
+  customVariables = customVariables.filter((variable) => variable.name !== name);
   renderVariableList();
 }
 
@@ -588,7 +708,9 @@ function insertFormulaSnippet(snippet) {
   const start = input.selectionStart ?? input.value.length;
   const end = input.selectionEnd ?? input.value.length;
   const insert = snippet === "()" ? "()" : snippet;
+
   input.value = input.value.slice(0, start) + insert + input.value.slice(end);
+
   const nextCursor = snippet === "()" ? start + 1 : start + insert.length;
   input.focus();
   input.setSelectionRange(nextCursor, nextCursor);
@@ -597,6 +719,7 @@ function insertFormulaSnippet(snippet) {
 function renderVariableInsertOptions() {
   const select = document.getElementById("insert-variable");
   if (!select) return;
+
   select.innerHTML = '<option value="">Choose variable</option>';
   customVariables.forEach((variable) => {
     const option = document.createElement("option");
@@ -608,7 +731,10 @@ function renderVariableInsertOptions() {
 
 function renderVariableList() {
   const list = document.getElementById("variable-list");
+  if (!list) return;
+
   list.innerHTML = "";
+
   if (customVariables.length === 0) {
     const li = document.createElement("li");
     li.className = "empty-note";
@@ -616,8 +742,10 @@ function renderVariableList() {
     list.appendChild(li);
     return;
   }
+
   customVariables.forEach((variable) => {
     const li = document.createElement("li");
+
     const text = document.createElement("span");
     text.className = "variable-token";
     text.textContent = `${variable.name} = ${variable.formula}`;
@@ -641,12 +769,120 @@ function renderVariableList() {
     li.appendChild(actions);
     list.appendChild(li);
   });
+
   renderVariableInsertOptions();
+}
+
+function readCustomForm() {
+  return {
+    name: document.getElementById("custom-name").value.trim() || "Custom Indicator",
+    formula: document.getElementById("custom-formula").value.trim(),
+    panel: document.getElementById("custom-panel").value,
+    draw: document.getElementById("custom-draw").value,
+    color: document.getElementById("custom-color").value,
+    width: Number(document.getElementById("custom-width").value) || 2,
+    variables: customVariables.map((item) => ({ ...item })),
+  };
+}
+
+function openCustomModal() {
+  customVariables = [];
+  renderVariableList();
+  renderVariableInsertOptions();
+  document.getElementById("custom-modal").hidden = false;
+  document.getElementById("custom-formula").focus();
+}
+
+function closeCustomModal() {
+  document.getElementById("custom-modal").hidden = true;
+  document.getElementById("ind-type").value = "sma";
+  renderParamFields();
+}
+
+function loadCustomIndicators() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_err) {
+    return [];
+  }
+}
+
+function saveCustomIndicator(def) {
+  const normalized = {
+    name: def.name,
+    formula: def.formula,
+    panel: def.panel,
+    draw: def.draw,
+    color: def.color,
+    width: def.width,
+    variables: Array.isArray(def.variables) ? def.variables : [],
+  };
+
+  const withoutDuplicate = customIndicators.filter(
+    (item) => item.name !== normalized.name || item.formula !== normalized.formula,
+  );
+
+  customIndicators = [normalized, ...withoutDuplicate].slice(0, 20);
+  localStorage.setItem(CUSTOM_KEY, JSON.stringify(customIndicators));
+  renderCustomOptions();
+}
+
+function renderCustomOptions() {
+  const list = document.getElementById("saved-custom-list");
+  if (!list) return;
+
+  list.innerHTML = "";
+
+  if (customIndicators.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty-note";
+    li.textContent = "No saved indicators.";
+    list.appendChild(li);
+    return;
+  }
+
+  customIndicators.forEach((def) => {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.textContent = def.name;
+
+    const actions = document.createElement("div");
+    actions.style.display = "flex";
+    actions.style.gap = "6px";
+
+    const use = document.createElement("button");
+    use.textContent = "Use";
+    use.onclick = () => {
+      if (!candles.length) {
+        setStatus("Load a CSV first.");
+        return;
+      }
+      addIndicator("custom", def);
+    };
+
+    const del = document.createElement("button");
+    del.textContent = "Delete";
+    del.onclick = () => {
+      customIndicators = customIndicators.filter(
+        (x) => !(x.name === def.name && x.formula === def.formula),
+      );
+      localStorage.setItem(CUSTOM_KEY, JSON.stringify(customIndicators));
+      renderCustomOptions();
+    };
+
+    actions.appendChild(use);
+    actions.appendChild(del);
+    li.appendChild(name);
+    li.appendChild(actions);
+    list.appendChild(li);
+  });
 }
 
 function setupCustomModal() {
   const modal = document.getElementById("custom-modal");
   const form = document.getElementById("custom-form");
+
   document
     .getElementById("custom-close")
     .addEventListener("click", closeCustomModal);
@@ -654,6 +890,7 @@ function setupCustomModal() {
   modal.addEventListener("click", (event) => {
     if (event.target === modal) closeCustomModal();
   });
+
   document
     .getElementById("add-variable-btn")
     .addEventListener("click", addVariableFromForm);
@@ -666,6 +903,7 @@ function setupCustomModal() {
         addVariableFromForm();
       }
     });
+
   document.querySelectorAll("[data-insert-select]").forEach((select) => {
     select.addEventListener("change", () => {
       insertFormulaSnippet(select.value);
@@ -704,122 +942,54 @@ function setupCustomModal() {
   });
 }
 
-function openCustomModal() {
-  customVariables = [];
-  renderVariableList();
-  renderVariableInsertOptions();
-  document.getElementById("custom-modal").hidden = false;
-  document.getElementById("custom-formula").focus();
-}
+document.getElementById("ind-type").addEventListener("change", renderParamFields);
+renderParamFields();
 
-function closeCustomModal() {
-  document.getElementById("custom-modal").hidden = true;
-  document.getElementById("ind-type").value = "sma";
-  renderParamFields();
-}
+document.getElementById("indicator-form").addEventListener("submit", (event) => {
+  event.preventDefault();
 
-function readCustomForm() {
-  return {
-    name:
-      document.getElementById("custom-name").value.trim() || "Custom Indicator",
-    formula: document.getElementById("custom-formula").value.trim(),
-    panel: document.getElementById("custom-panel").value,
-    draw: document.getElementById("custom-draw").value,
-    color: document.getElementById("custom-color").value,
-    width: Number(document.getElementById("custom-width").value) || 2,
-    variables: customVariables.map((item) => ({ ...item })),
-  };
-}
-
-function loadCustomIndicators() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(CUSTOM_KEY) || "[]");
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (_err) {
-    return [];
-  }
-}
-
-function saveCustomIndicator(def) {
-  const normalized = {
-    name: def.name,
-    formula: def.formula,
-    panel: def.panel,
-    draw: def.draw,
-    color: def.color,
-    width: def.width,
-    variables: Array.isArray(def.variables) ? def.variables : [],
-  };
-  const withoutDuplicate = customIndicators.filter(
-    (item) =>
-      item.name !== normalized.name || item.formula !== normalized.formula,
-  );
-  customIndicators = [normalized, ...withoutDuplicate].slice(0, 20);
-  localStorage.setItem(CUSTOM_KEY, JSON.stringify(customIndicators));
-  renderCustomOptions();
-}
-
-function renderCustomOptions() {
-  const list = document.getElementById("saved-custom-list");
-  list.innerHTML = "";
-
-  if (customIndicators.length === 0) {
-    const li = document.createElement("li");
-    li.className = "empty-note";
-    li.textContent = "No saved indicators.";
-    list.appendChild(li);
+  if (candles.length === 0) {
+    setStatus("Load a CSV before adding indicators.");
     return;
   }
 
-  customIndicators.forEach((def) => {
-    const li = document.createElement("li");
+  const type = document.getElementById("ind-type").value;
+  const params = {};
 
-    const name = document.createElement("span");
-    name.textContent = def.name;
-
-    const actions = document.createElement("div");
-    actions.style.display = "flex";
-    actions.style.gap = "6px";
-
-    const use = document.createElement("button");
-    use.textContent = "Use";
-
-    use.onclick = () => {
-      if (!candles.length) {
-        setStatus("Load a CSV first.");
-        return;
-      }
-
-      addIndicator("custom", def);
-    };
-
-    const del = document.createElement("button");
-    del.textContent = "Delete";
-
-    del.onclick = () => {
-      customIndicators = customIndicators.filter(
-        (x) => !(x.name === def.name && x.formula === def.formula),
-      );
-
-      localStorage.setItem(CUSTOM_KEY, JSON.stringify(customIndicators));
-
-      renderCustomOptions();
-    };
-
-    actions.appendChild(use);
-    actions.appendChild(del);
-
-    li.appendChild(name);
-    li.appendChild(actions);
-
-    list.appendChild(li);
+  PARAM_SETS[type].forEach((p) => {
+    params[p.id] = Number(document.getElementById("param-" + p.id).value);
   });
-}
+
+  addIndicator(type, params);
+});
+
+document.getElementById("formula-help-btn").addEventListener("click", () => {
+  document.getElementById("formula-modal").hidden = false;
+});
+
+document.getElementById("formula-close").addEventListener("click", () => {
+  document.getElementById("formula-modal").hidden = true;
+});
+
+document.getElementById("formula-modal").addEventListener("click", (e) => {
+  if (e.target.id === "formula-modal") {
+    document.getElementById("formula-modal").hidden = true;
+  }
+});
 
 document
   .getElementById("new-custom-btn")
   .addEventListener("click", openCustomModal);
 
-createCharts();
-renderCustomOptions();
-setupCustomModal();
+function init() {
+  createCharts();
+  renderCustomOptions();
+  setupCustomModal();
+
+  const lastStock = localStorage.getItem(LAST_STOCK_KEY) || "SAMPLE";
+  if (stockLabelEl) stockLabelEl.textContent = lastStock;
+
+  loadStockByName(lastStock);
+}
+
+init();

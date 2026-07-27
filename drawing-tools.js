@@ -540,13 +540,27 @@ class DrawingToolManager {
     this.deleteBtn.textContent = "✕";
     this.deleteBtn.hidden = true;
     this.deleteBtn.title = "Delete drawing";
-    this.deleteBtn.addEventListener("click", () => {
+    this.deleteBtn.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    this.deleteBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       if (this.hoveredDrawing) this.removeDrawing(this.hoveredDrawing.id);
     });
     container.appendChild(this.deleteBtn);
 
-    container.addEventListener("click", this._onClick);
-    container.addEventListener("contextmenu", this._onContext);
+    container.addEventListener("click", (e) => {
+      if (e.target.closest(".drawing-delete-fab")) return;
+      this._onClick(e);
+    });
+
+    container.addEventListener("contextmenu", (e) => {
+      if (e.target.closest(".drawing-delete-fab")) return;
+      this._onContext(e);
+    });
     container.addEventListener("mouseleave", this._onLeave);
 
     chart.subscribeCrosshairMove(this._onMove);
@@ -651,8 +665,7 @@ class DrawingToolManager {
 
   _onLeave() {
     this.hover = null;
-    if (this.activeTool === "cursor") {
-      this.hoveredDrawing = null;
+    if (this.activeTool === "cursor" && !this.hoveredDrawing) {
       this._hideDelete();
       this._syncCursor();
     }

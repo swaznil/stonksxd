@@ -1,28 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>StonksxD Candlestick Chart</title>
-<link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="custom-indicator.css">
-
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="custom-indicator.css" />
 </head>
 <body>
-
 <header class="topbar">
-  <div class="brand">
-    <span class="brand-mark">xD</span>
-    <div class="brand-text">
-      <h1>StonksxD</h1>
-      <p>Candlestick Chart & Custom Indicators Tool</p>
+  <div class="top-left">
+    <div class="brand">
+      <span class="brand-mark">xD</span>
+      <div class="brand-text">
+        <h1>StonksxD</h1>
+        <p>Candlestick Chart & Custom Indicators Tool</p>
+      </div>
     </div>
   </div>
 
-  <div class="file-controls">
+  <div class="top-center">
+    <button id="stock-selector-btn" class="stock-selector-btn" type="button">
+      <span id="stock-current-label">SAMPLE</span>
+      <span class="caret">▾</span>
+    </button>
+  </div>
+
+  <div class="top-right">
     <label for="csv-input" class="file-btn">Load CSV</label>
-    <input id="csv-input" type="file" accept=".csv" hidden>
+    <input id="csv-input" type="file" accept=".csv" hidden />
     <span id="file-name" class="file-name">No file loaded</span>
   </div>
 </header>
@@ -82,7 +88,7 @@
 
     <div class="panel">
       <h2>Custom Indicators</h2>
-      <button id="new-custom-btn" class="primary-btn">Create New Indicator</button>
+      <button id="new-custom-btn" class="primary-btn" type="button">Create New Indicator</button>
 
       <h3 class="panel-subheading">Saved Indicators</h3>
       <ul id="saved-custom-list" class="indicator-list">
@@ -91,6 +97,32 @@
     </div>
   </aside>
 </main>
+
+<div id="stock-modal-backdrop" class="stock-modal-backdrop" hidden>
+  <div class="stock-modal">
+    <div class="stock-modal-head">
+      <div>
+        <h2>Load Stock</h2>
+        <p>Search dummy stock names and load the matching CSV.</p>
+      </div>
+      <button id="stock-close-btn" class="icon-btn" type="button">x</button>
+    </div>
+
+    <input
+      id="stock-search-input"
+      class="stock-search-input"
+      type="text"
+      placeholder="Search stocks..."
+      autocomplete="off"
+    />
+
+    <div id="stock-list" class="stock-list"></div>
+
+    <div class="stock-help">
+      Auto-loads <strong>SAMPLE</strong> on startup.
+    </div>
+  </div>
+</div>
 
 <div id="custom-modal" class="modal-backdrop" hidden>
   <div class="modal custom-modal">
@@ -106,7 +138,7 @@
       <section class="builder-main">
         <div class="form-row">
           <label for="custom-name">Name</label>
-          <input id="custom-name" type="text" value="My Indicator" required>
+          <input id="custom-name" type="text" value="My Indicator" required />
         </div>
 
         <div class="form-row">
@@ -162,34 +194,15 @@
 
           <div class="variable-entry">
             <select id="variable-name" aria-label="Variable name">
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
-              <option value="D">D</option>
-              <option value="E">E</option>
-              <option value="F">F</option>
-              <option value="G">G</option>
-              <option value="H">H</option>
-              <option value="I">I</option>
-              <option value="J">J</option>
-              <option value="K">K</option>
-              <option value="L">L</option>
-              <option value="M">M</option>
-              <option value="N">N</option>
-              <option value="O">O</option>
-              <option value="P">P</option>
-              <option value="Q">Q</option>
-              <option value="R">R</option>
-              <option value="S">S</option>
-              <option value="T">T</option>
-              <option value="U">U</option>
-              <option value="V">V</option>
-              <option value="W">W</option>
-              <option value="X">X</option>
-              <option value="Y">Y</option>
-              <option value="Z">Z</option>
+              <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+              <option value="E">E</option><option value="F">F</option><option value="G">G</option><option value="H">H</option>
+              <option value="I">I</option><option value="J">J</option><option value="K">K</option><option value="L">L</option>
+              <option value="M">M</option><option value="N">N</option><option value="O">O</option><option value="P">P</option>
+              <option value="Q">Q</option><option value="R">R</option><option value="S">S</option><option value="T">T</option>
+              <option value="U">U</option><option value="V">V</option><option value="W">W</option><option value="X">X</option>
+              <option value="Y">Y</option><option value="Z">Z</option>
             </select>
-            <input id="variable-formula" type="text" spellcheck="false" placeholder="EMA(close,20)">
+            <input id="variable-formula" type="text" spellcheck="false" placeholder="EMA(close,20)" />
             <button id="add-variable-btn" class="secondary-btn compact-btn" type="button">Add</button>
           </div>
 
@@ -220,16 +233,16 @@
         <div class="side-grid">
           <div class="form-row">
             <label for="custom-color">Color</label>
-            <input id="custom-color" type="color" value="#3179f5">
+            <input id="custom-color" type="color" value="#3179f5" />
           </div>
           <div class="form-row">
             <label for="custom-width">Width</label>
-            <input id="custom-width" type="number" value="2" min="1" max="5">
+            <input id="custom-width" type="number" value="2" min="1" max="5" />
           </div>
         </div>
 
         <label class="check-row">
-          <input id="custom-save" type="checkbox" checked>
+          <input id="custom-save" type="checkbox" checked />
           Save for later
         </label>
 
