@@ -534,33 +534,8 @@ class DrawingToolManager {
 
     container.style.position = container.style.position || "relative";
 
-    this.deleteBtn = document.createElement("button");
-    this.deleteBtn.type = "button";
-    this.deleteBtn.className = "drawing-delete-fab";
-    this.deleteBtn.textContent = "✕";
-    this.deleteBtn.hidden = true;
-    this.deleteBtn.title = "Delete drawing";
-    this.deleteBtn.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    });
-
-    this.deleteBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (this.hoveredDrawing) this.removeDrawing(this.hoveredDrawing.id);
-    });
-    container.appendChild(this.deleteBtn);
-
-    container.addEventListener("click", (e) => {
-      if (e.target.closest(".drawing-delete-fab")) return;
-      this._onClick(e);
-    });
-
-    container.addEventListener("contextmenu", (e) => {
-      if (e.target.closest(".drawing-delete-fab")) return;
-      this._onContext(e);
-    });
+    container.addEventListener("click", (e) => this._onClick(e));
+    container.addEventListener("contextmenu", (e) => this._onContext(e));
     container.addEventListener("mouseleave", this._onLeave);
 
     chart.subscribeCrosshairMove(this._onMove);
@@ -579,7 +554,6 @@ class DrawingToolManager {
     this.pendingPoints = [];
     this._clearPreview();
     this.hoveredDrawing = null;
-    this._hideDelete();
     this._syncCursor();
   }
 
@@ -598,7 +572,6 @@ class DrawingToolManager {
     this.drawings = [];
     this.pendingPoints = [];
     this.hoveredDrawing = null;
-    this._hideDelete();
   }
 
   removeDrawing(id) {
@@ -607,7 +580,6 @@ class DrawingToolManager {
     this.series.detachPrimitive(this.drawings[idx].primitive);
     this.drawings.splice(idx, 1);
     this.hoveredDrawing = null;
-    this._hideDelete();
     this._syncCursor();
   }
 
@@ -646,27 +618,13 @@ class DrawingToolManager {
   }
 
   _showDelete(drawing, param) {
-    const anchor = drawing.primitive.getHandlePoint?.();
-    const fallback = param?.point;
-
-    const x = (anchor?.x ?? fallback?.x ?? 0) + 14;
-    const y = (anchor?.y ?? fallback?.y ?? 0) - 14;
-
-    this.deleteBtn.hidden = false;
-    this.deleteBtn.style.left = `${clamp(x, 8, this.container.clientWidth - 28)}px`;
-    this.deleteBtn.style.top = `${clamp(y, 8, this.container.clientHeight - 28)}px`;
-    this.hoveredDrawing = drawing;
-    this._syncCursor();
-  }
-
-  _hideDelete() {
-    this.deleteBtn.hidden = true;
-  }
+      this.hoveredDrawing = drawing;
+      this._syncCursor();
+    }
 
   _onLeave() {
     this.hover = null;
     if (this.activeTool === "cursor" && !this.hoveredDrawing) {
-      this._hideDelete();
       this._syncCursor();
     }
   }
@@ -680,7 +638,6 @@ class DrawingToolManager {
         this._showDelete(hovered.drawing, param);
       } else {
         this.hoveredDrawing = null;
-        this._hideDelete();
       }
       this._syncCursor();
     }
@@ -857,7 +814,6 @@ class DrawingToolManager {
     if (e.key === "Escape") {
       this.pendingPoints = [];
       this._clearPreview();
-      this._hideDelete();
       this.hoveredDrawing = null;
     }
     if ((e.key === "Delete" || e.key === "Backspace") && this.hoveredDrawing) {
