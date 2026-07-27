@@ -618,9 +618,9 @@ class DrawingToolManager {
   }
 
   _showDelete(drawing, param) {
-      this.hoveredDrawing = drawing;
-      this._syncCursor();
-    }
+    this.hoveredDrawing = drawing;
+    this._syncCursor();
+  }
 
   _onLeave() {
     this.hover = null;

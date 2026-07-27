@@ -325,7 +325,6 @@ textarea:focus {
   align-items: center;
   min-width: 0;
 }
-
 .stock-selector-btn {
   min-width: 240px;
   max-width: 360px;
@@ -340,16 +339,13 @@ textarea:focus {
   font-family: var(--mono);
   cursor: pointer;
 }
-
 .stock-selector-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
-
 .stock-selector-btn .caret {
   opacity: 0.8;
 }
-
 .stock-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -369,7 +365,6 @@ textarea:focus {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
   padding: 16px;
 }
-
 .stock-modal-head {
   display: flex;
   align-items: start;
@@ -377,14 +372,12 @@ textarea:focus {
   gap: 12px;
   margin-bottom: 14px;
 }
-
 .stock-modal-head h2 {
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--muted);
 }
-
 .stock-modal-head p,
 .stock-help {
   margin: 6px 0 0;
@@ -392,20 +385,17 @@ textarea:focus {
   font-family: var(--mono);
   font-size: 12px;
 }
-
 .stock-search-input {
   margin-bottom: 12px;
   padding: 10px 12px;
   width: 100%;
 }
-
 .stock-list {
   display: grid;
   gap: 8px;
   max-height: 360px;
   overflow: auto;
 }
-
 .stock-row {
   width: 100%;
   display: flex;
@@ -424,6 +414,7 @@ textarea:focus {
   color: var(--muted);
   font-family: var(--mono);
 }
+
 @media (max-width: 900px) {
   .workspace {
     grid-template-columns: 44px 1fr;

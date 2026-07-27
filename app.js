@@ -186,9 +186,7 @@ function renderStockList() {
   if (!stockListEl || !stockSearchInput) return;
 
   const q = stockSearchInput.value.trim().toLowerCase();
-  const filtered = DUMMY_STOCKS.filter((s) =>
-    s.name.toLowerCase().includes(q),
-  );
+  const filtered = DUMMY_STOCKS.filter((s) => s.name.toLowerCase().includes(q));
 
   stockListEl.innerHTML = "";
 
@@ -299,8 +297,10 @@ function loadData(rows, fileName, label = fileName) {
 
   document.getElementById("stat-rows").textContent = candles.length;
   document.getElementById("stat-start").textContent = candles[0].time;
-  document.getElementById("stat-end").textContent = candles[candles.length - 1].time;
-  document.getElementById("stat-close").textContent = candles[candles.length - 1].close.toFixed(2);
+  document.getElementById("stat-end").textContent =
+    candles[candles.length - 1].time;
+  document.getElementById("stat-close").textContent =
+    candles[candles.length - 1].close.toFixed(2);
 
   setStatus(`Loaded ${candles.length} rows.`);
 }
@@ -338,7 +338,10 @@ function createCharts() {
   });
 
   drawingManager = new DrawingToolManager(chart, candleSeries, mainChartEl);
-  buildDrawingToolbar(document.getElementById("drawing-toolbar"), drawingManager);
+  buildDrawingToolbar(
+    document.getElementById("drawing-toolbar"),
+    drawingManager,
+  );
 }
 
 fileInputEl.addEventListener("change", (event) => {
@@ -464,10 +467,7 @@ function addIndicator(type, params) {
     const data = candles.map((c) => ({
       time: c.time,
       value: c.volume,
-      color:
-        c.close >= c.open
-          ? "rgba(38,166,154,0.6)"
-          : "rgba(239,83,80,0.6)",
+      color: c.close >= c.open ? "rgba(38,166,154,0.6)" : "rgba(239,83,80,0.6)",
     }));
     const s = chart.addSeries(HistogramSeries, { color: "#26a69a" }, paneIndex);
     s.setData(data);
@@ -499,9 +499,21 @@ function addIndicator(type, params) {
     );
     const color = nextColor();
     const signalColor = nextColor();
-    const sMacd = chart.addSeries(LineSeries, { color, lineWidth: 2 }, paneIndex);
-    const sSignal = chart.addSeries(LineSeries, { color: signalColor, lineWidth: 1 }, paneIndex);
-    const sHist = chart.addSeries(HistogramSeries, { color: "#4a4e5c" }, paneIndex);
+    const sMacd = chart.addSeries(
+      LineSeries,
+      { color, lineWidth: 2 },
+      paneIndex,
+    );
+    const sSignal = chart.addSeries(
+      LineSeries,
+      { color: signalColor, lineWidth: 1 },
+      paneIndex,
+    );
+    const sHist = chart.addSeries(
+      HistogramSeries,
+      { color: "#4a4e5c" },
+      paneIndex,
+    );
     sMacd.setData(macdLine);
     sSignal.setData(signalLine);
     sHist.setData(histogram);
@@ -546,7 +558,11 @@ function addIndicator(type, params) {
     const color = nextColor();
     const signalColor = nextColor();
     const sK = chart.addSeries(LineSeries, { color, lineWidth: 2 }, paneIndex);
-    const sD = chart.addSeries(LineSeries, { color: signalColor, lineWidth: 1 }, paneIndex);
+    const sD = chart.addSeries(
+      LineSeries,
+      { color: signalColor, lineWidth: 1 },
+      paneIndex,
+    );
     sK.setData(kLine);
     sD.setData(dLine);
     record.series.push(
@@ -563,7 +579,8 @@ function addIndicator(type, params) {
         candles,
         params.variables || [],
       );
-      if (data.length === 0) throw new Error("Formula produced no plottable values");
+      if (data.length === 0)
+        throw new Error("Formula produced no plottable values");
 
       record.kind = params.panel === "pane" ? "pane" : "overlay";
       record.label = params.name || params.formula;
@@ -664,7 +681,10 @@ function renderIndicatorList() {
 }
 
 function addVariableFromForm() {
-  const name = document.getElementById("variable-name").value.trim().toUpperCase();
+  const name = document
+    .getElementById("variable-name")
+    .value.trim()
+    .toUpperCase();
   const formula = document.getElementById("variable-formula").value.trim();
 
   if (!/^[A-Z]$/.test(name)) {
@@ -695,7 +715,9 @@ function editVariable(name) {
 }
 
 function removeVariable(name) {
-  customVariables = customVariables.filter((variable) => variable.name !== name);
+  customVariables = customVariables.filter(
+    (variable) => variable.name !== name,
+  );
   renderVariableList();
 }
 
@@ -775,7 +797,8 @@ function renderVariableList() {
 
 function readCustomForm() {
   return {
-    name: document.getElementById("custom-name").value.trim() || "Custom Indicator",
+    name:
+      document.getElementById("custom-name").value.trim() || "Custom Indicator",
     formula: document.getElementById("custom-formula").value.trim(),
     panel: document.getElementById("custom-panel").value,
     draw: document.getElementById("custom-draw").value,
@@ -822,7 +845,8 @@ function saveCustomIndicator(def) {
   };
 
   const withoutDuplicate = customIndicators.filter(
-    (item) => item.name !== normalized.name || item.formula !== normalized.formula,
+    (item) =>
+      item.name !== normalized.name || item.formula !== normalized.formula,
   );
 
   customIndicators = [normalized, ...withoutDuplicate].slice(0, 20);
@@ -917,20 +941,6 @@ function setupCustomModal() {
     });
   });
 
-  document.getElementById("custom-test").addEventListener("click", () => {
-    if (candles.length === 0) {
-      setStatus("Load a CSV before previewing a custom indicator.");
-      return;
-    }
-    const def = readCustomForm();
-    try {
-      const data = evaluateFormula(def.formula, candles, def.variables);
-      setStatus(`Preview OK: ${data.length} plotted points.`);
-    } catch (err) {
-      setStatus("Custom indicator error: " + err.message);
-    }
-  });
-
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     if (candles.length === 0) {
@@ -948,26 +958,30 @@ function setupCustomModal() {
   });
 }
 
-document.getElementById("ind-type").addEventListener("change", renderParamFields);
+document
+  .getElementById("ind-type")
+  .addEventListener("change", renderParamFields);
 renderParamFields();
 
-document.getElementById("indicator-form").addEventListener("submit", (event) => {
-  event.preventDefault();
+document
+  .getElementById("indicator-form")
+  .addEventListener("submit", (event) => {
+    event.preventDefault();
 
-  if (candles.length === 0) {
-    setStatus("Load a CSV before adding indicators.");
-    return;
-  }
+    if (candles.length === 0) {
+      setStatus("Load a CSV before adding indicators.");
+      return;
+    }
 
-  const type = document.getElementById("ind-type").value;
-  const params = {};
+    const type = document.getElementById("ind-type").value;
+    const params = {};
 
-  PARAM_SETS[type].forEach((p) => {
-    params[p.id] = Number(document.getElementById("param-" + p.id).value);
+    PARAM_SETS[type].forEach((p) => {
+      params[p.id] = Number(document.getElementById("param-" + p.id).value);
+    });
+
+    addIndicator(type, params);
   });
-
-  addIndicator(type, params);
-});
 
 document.getElementById("formula-help-btn").addEventListener("click", () => {
   document.getElementById("formula-modal").hidden = false;
