@@ -57,6 +57,7 @@ let indicatorSeq = 0;
 const CUSTOM_KEY = "chartlab.customIndicators.v1";
 let customIndicators = loadCustomIndicators();
 let customVariables = [];
+let drawingManager = null;
 
 const mainChartEl = document.getElementById("main-chart");
 
@@ -90,6 +91,9 @@ function createCharts() {
       }
     });
   });
+
+  drawingManager = new DrawingToolManager(chart, candleSeries, mainChartEl);
+  buildDrawingToolbar(document.getElementById("drawing-toolbar"), drawingManager);
 }
 
 function updateReadout(param, el, series, isOhlc) {
@@ -182,6 +186,8 @@ function loadData(rows, fileName) {
   });
   indicators = [];
   renderIndicatorList();
+
+  if (drawingManager) drawingManager.clearAll();
 
   document.getElementById("series-title").textContent = fileName.replace(
     /\.csv$/i,

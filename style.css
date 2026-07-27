@@ -88,8 +88,49 @@ button:hover {
 }
 .workspace {
   display: grid;
-  grid-template-columns: 1fr 280px;
+  grid-template-columns: 48px 1fr 280px;
   min-height: calc(100vh - 96px);
+}
+.drawing-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border-right: 1px solid var(--rule-strong);
+  background: var(--panel);
+}
+.draw-tool-btn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 3px;
+}
+.draw-tool-btn:hover {
+  border-color: var(--rule-strong);
+  color: var(--ink);
+  background: var(--panel-alt);
+}
+.draw-tool-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(44, 126, 249, 0.12);
+}
+.draw-tool-btn[data-tool="remove"] {
+  margin-top: 8px;
+  border-top: 1px solid var(--rule);
+  padding-top: 8px;
+  border-radius: 0;
+}
+.draw-tool-btn[data-tool="remove"]:hover {
+  color: var(--down);
+  border-color: var(--down);
 }
 .chart-column {
   display: flex;
@@ -98,12 +139,10 @@ button:hover {
   border-right: 1px solid var(--rule-strong);
   background: var(--panel);
 }
-
 .chart-box-main {
   flex: 1 1 auto;
   min-height: 300px;
 }
-
 .pane-label {
   display: flex;
   justify-content: space-between;
@@ -279,12 +318,13 @@ textarea:focus {
 
 @media (max-width: 900px) {
   .workspace {
-    grid-template-columns: 1fr;
+    grid-template-columns: 44px 1fr;
   }
   .chart-column {
     border-right: 0;
   }
   .sidebar {
+    grid-column: 1 / -1;
     border-top: 1px solid var(--rule-strong);
   }
 }
