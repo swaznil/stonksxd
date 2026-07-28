@@ -59,8 +59,6 @@ stonksxd.vercel.app
 
 ## Screenshots
 
-![StonksxD Homepage](assets/screenshotfront.png)
-
 ![StonksxD Chart Example](assets/screenshotchart.png)
 
 ![StonksxD Custom Indicator Builder](assets/screenshotindicator.png)
