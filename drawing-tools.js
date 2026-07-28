@@ -46,6 +46,27 @@ function pointToInfiniteRayDistance(px, py, x1, y1, x2, y2) {
   return Math.hypot(px - projX, py - projY);
 }
 
+function isEditableTarget(target) {
+  if (!target) return false;
+  const tag = target.tagName ? target.tagName.toLowerCase() : "";
+  return (
+    tag === "input" ||
+    tag === "textarea" ||
+    tag === "select" ||
+    target.isContentEditable ||
+    Boolean(target.closest?.("[contenteditable='true']"))
+  );
+}
+
+function scaleLineWidth(width, horizontalPixelRatio, verticalPixelRatio) {
+  return width * Math.max(horizontalPixelRatio, verticalPixelRatio);
+}
+
+function setScaledFont(ctx, size, horizontalPixelRatio, verticalPixelRatio) {
+  const ratio = Math.max(horizontalPixelRatio, verticalPixelRatio);
+  ctx.font = `${size * ratio}px IBM Plex Mono, monospace`;
+}
+
 function rectContains(px, py, x1, y1, x2, y2) {
   const left = Math.min(x1, x2);
   const right = Math.max(x1, x2);
@@ -116,7 +137,7 @@ class TrendLinePrimitive extends DrawingPrimitiveBase {
 
     ctx.save();
     ctx.strokeStyle = this.color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = scaleLineWidth(2, horizontalPixelRatio, verticalPixelRatio);
     ctx.lineDashOffset = 0;
     ctx.setLineDash([]);
     ctx.beginPath();
@@ -161,54 +182,41 @@ class RayPrimitive extends DrawingPrimitiveBase {
     const y2 = this._priceToY(this.p2.price);
     if ([x1, y1, x2, y2].some((v) => v == null)) return null;
 
-    const bounds = this._chart.timeScale().getVisibleLogicalRange?.();
     const width = this._chart.timeScale().width?.() ?? 1000;
-    const height =
-      this._series.priceToCoordinate(this.p1.price) != null
-        ? this._series.priceToCoordinate(this.p1.price) * 2
-        : 600;
+    const height = document.getElementById("main-chart")?.clientHeight ?? 600;
 
     const dx = x2 - x1;
     const dy = y2 - y1;
-    const len = Math.hypot(dx, dy) || 1;
-    const ux = dx / len;
-    const uy = dy / len;
+    if (dx === 0 && dy === 0) return { x: x2, y: y2 };
 
     const candidates = [];
     const W = width;
     const H = height;
 
-    const edges = [
-      { x: 0, y: y1 + (0 - x1) * (uy / ux || 0) },
-      { x: W, y: y1 + (W - x1) * (uy / ux || 0) },
-      { x: x1 + (0 - y1) * (ux / uy || 0), y: 0 },
-      { x: x1 + (H - y1) * (ux / uy || 0), y: H },
-    ];
+    if (dx !== 0) {
+      for (const x of [0, W]) {
+        const t = (x - x1) / dx;
+        const y = y1 + t * dy;
+        if (t >= 1 && y >= 0 && y <= H) candidates.push({ x, y, t });
+      }
+    }
 
-    for (const e of edges) {
-      if (!Number.isFinite(e.x) || !Number.isFinite(e.y)) continue;
-      const t =
-        Math.abs(dx) > Math.abs(dy)
-          ? dx !== 0
-            ? (e.x - x1) / dx
-            : -1
-          : dy !== 0
-            ? (e.y - y1) / dy
-            : -1;
-      if (t >= 1) candidates.push({ ...e, t });
+    if (dy !== 0) {
+      for (const y of [0, H]) {
+        const t = (y - y1) / dy;
+        const x = x1 + t * dx;
+        if (t >= 1 && x >= 0 && x <= W) candidates.push({ x, y, t });
+      }
     }
 
     let best = candidates[0];
     for (const c of candidates) {
-      if (!best || c.t > best.t) best = c;
+      if (!best || c.t < best.t) best = c;
     }
 
     if (best) return { x: best.x, y: best.y };
 
-    return {
-      x: x2 + ux * 5000,
-      y: y2 + uy * 5000,
-    };
+    return { x: x2, y: y2 };
   }
 
   _draw({
@@ -228,7 +236,7 @@ class RayPrimitive extends DrawingPrimitiveBase {
 
     ctx.save();
     ctx.strokeStyle = this.color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = scaleLineWidth(2, horizontalPixelRatio, verticalPixelRatio);
     ctx.setLineDash([]);
     ctx.beginPath();
     ctx.moveTo(x1 * horizontalPixelRatio, y1 * verticalPixelRatio);
@@ -277,7 +285,7 @@ class HorizontalLinePrimitive extends DrawingPrimitiveBase {
 
     ctx.save();
     ctx.strokeStyle = this.color;
-    ctx.lineWidth = this.preview ? 1.75 : 2;
+    ctx.lineWidth = scaleLineWidth(this.preview ? 1.75 : 2, horizontalPixelRatio, verticalPixelRatio);
     ctx.setLineDash([]);
     ctx.beginPath();
     ctx.moveTo(0, y * verticalPixelRatio);
@@ -323,7 +331,7 @@ class VerticalLinePrimitive extends DrawingPrimitiveBase {
 
     ctx.save();
     ctx.strokeStyle = this.color;
-    ctx.lineWidth = this.preview ? 1.75 : 2;
+    ctx.lineWidth = scaleLineWidth(this.preview ? 1.75 : 2, horizontalPixelRatio, verticalPixelRatio);
     ctx.setLineDash([]);
     ctx.beginPath();
     ctx.moveTo(x * horizontalPixelRatio, 0);
@@ -371,7 +379,7 @@ class FibRetracementPrimitive extends DrawingPrimitiveBase {
     const diff = high - low;
 
     ctx.save();
-    ctx.font = "11px IBM Plex Mono, monospace";
+    setScaledFont(ctx, 11, horizontalPixelRatio, verticalPixelRatio);
     FIB_LEVELS.forEach((level, i) => {
       const price = high - diff * level;
       const y = this._priceToY(price);
@@ -379,7 +387,7 @@ class FibRetracementPrimitive extends DrawingPrimitiveBase {
 
       const color = FIB_COLORS[i % FIB_COLORS.length];
       ctx.strokeStyle = color;
-      ctx.lineWidth = 1.25;
+      ctx.lineWidth = scaleLineWidth(1.25, horizontalPixelRatio, verticalPixelRatio);
       ctx.setLineDash([]);
       ctx.beginPath();
       ctx.moveTo(xLeft * horizontalPixelRatio, y * verticalPixelRatio);
@@ -411,10 +419,7 @@ class FibRetracementPrimitive extends DrawingPrimitiveBase {
       const price = high - diff * level;
       const yy = this._priceToY(price);
       if (yy == null) continue;
-      const d = Math.min(
-        Math.abs(y - yy),
-        pointToSegmentDistance(x, y, xLeft, yy, xRight, yy),
-      );
+      const d = pointToSegmentDistance(x, y, xLeft, yy, xRight, yy);
       best = Math.min(best, d);
     }
 
@@ -458,7 +463,7 @@ class PriceRangePrimitive extends DrawingPrimitiveBase {
     ctx.save();
     ctx.fillStyle = fill;
     ctx.strokeStyle = stroke;
-    ctx.lineWidth = 1.25;
+    ctx.lineWidth = scaleLineWidth(1.25, horizontalPixelRatio, verticalPixelRatio);
     ctx.setLineDash([]);
     ctx.fillRect(xLeft, yTop, xRight - xLeft, yBottom - yTop);
     ctx.strokeRect(xLeft, yTop, xRight - xLeft, yBottom - yTop);
@@ -466,7 +471,7 @@ class PriceRangePrimitive extends DrawingPrimitiveBase {
     const delta = this.p2.price - this.p1.price;
     const pct = this.p1.price !== 0 ? (delta / this.p1.price) * 100 : 0;
     const label = `${delta >= 0 ? "+" : ""}${delta.toFixed(2)} (${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%)`;
-    ctx.font = "12px IBM Plex Mono, monospace";
+    setScaledFont(ctx, 12, horizontalPixelRatio, verticalPixelRatio);
     ctx.fillStyle = stroke;
     ctx.fillText(label, xLeft + 6, yTop + 16);
     ctx.restore();
@@ -534,8 +539,8 @@ class DrawingToolManager {
 
     container.style.position = container.style.position || "relative";
 
-    container.addEventListener("click", (e) => this._onClick(e));
-    container.addEventListener("contextmenu", (e) => this._onContext(e));
+    container.addEventListener("click", this._onClick);
+    container.addEventListener("contextmenu", this._onContext);
     container.addEventListener("mouseleave", this._onLeave);
 
     chart.subscribeCrosshairMove(this._onMove);
@@ -574,6 +579,15 @@ class DrawingToolManager {
     this.hoveredDrawing = null;
   }
 
+  destroy() {
+    this.clearAll();
+    this.container.removeEventListener("click", this._onClick);
+    this.container.removeEventListener("contextmenu", this._onContext);
+    this.container.removeEventListener("mouseleave", this._onLeave);
+    this.chart.unsubscribeCrosshairMove?.(this._onMove);
+    window.removeEventListener("keydown", this._onKeyDown);
+  }
+
   removeDrawing(id) {
     const idx = this.drawings.findIndex((d) => d.id === id);
     if (idx === -1) return;
@@ -602,6 +616,16 @@ class DrawingToolManager {
     };
   }
 
+  _eventToPoint(event) {
+    const rect = this.container.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const price = this.series.coordinateToPrice(y);
+    const time = this.chart.timeScale().coordinateToTime?.(x);
+    if (price == null || time == null) return null;
+    return { time, price, x, y };
+  }
+
   _findHoveredDrawing(param) {
     const pt = this._coordToPoint(param);
     if (!pt) return null;
@@ -624,9 +648,8 @@ class DrawingToolManager {
 
   _onLeave() {
     this.hover = null;
-    if (this.activeTool === "cursor" && !this.hoveredDrawing) {
-      this._syncCursor();
-    }
+    this.hoveredDrawing = null;
+    this._syncCursor();
   }
 
   _onMove(param) {
@@ -707,10 +730,10 @@ class DrawingToolManager {
     if (this.preview) this.series.attachPrimitive(this.preview);
   }
 
-  _onClick() {
+  _onClick(e) {
     if (this.activeTool === "cursor") return;
 
-    const point = this._coordToPoint(this.hover);
+    const point = this._coordToPoint(this.hover) || this._eventToPoint(e);
     if (!point) return;
 
     if (this.activeTool === "horizontal") {
@@ -811,12 +834,14 @@ class DrawingToolManager {
   }
 
   _onKeyDown(e) {
+    if (isEditableTarget(e.target)) return;
     if (e.key === "Escape") {
       this.pendingPoints = [];
       this._clearPreview();
       this.hoveredDrawing = null;
     }
     if ((e.key === "Delete" || e.key === "Backspace") && this.hoveredDrawing) {
+      e.preventDefault();
       this.removeDrawing(this.hoveredDrawing.id);
     }
   }
@@ -848,7 +873,7 @@ function buildDrawingToolbar(mountEl, manager) {
     btn.addEventListener("click", () => {
       manager.setTool(tool.id);
       mountEl.querySelectorAll(".draw-tool-btn").forEach((b) => {
-        b.classList.toggle("active", b.dataset.tool === tool.id);
+        b.classList.toggle("active", b.dataset.tool === manager.activeTool);
       });
     });
 

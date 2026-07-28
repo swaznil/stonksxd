@@ -5,14 +5,14 @@
   place-items: center;
   padding: 24px;
   background: rgba(5, 7, 12, .72);
-  z-index: 10;
+  z-index: 60;
 }
 .modal-backdrop[hidden] {
   display: none;
 }
 .modal {
   width: min(920px, 100%);
-  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
   overflow-y: auto;
   border: 1px solid var(--rule-strong);
   background: var(--panel);

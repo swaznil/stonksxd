@@ -94,7 +94,7 @@ const PRESET_INDICATORS = [
 
   {
     name: "ATR (14)",
-    formula: "EMA(ABS(high-low),14)",
+    formula: "ATR(14)",
     panel: "pane",
     draw: "line",
     color: "#8d6e63",
@@ -159,31 +159,76 @@ function isValidIndicatorDef(def) {
     def &&
     typeof def.name === "string" &&
     typeof def.formula === "string" &&
+    def.name.trim().length > 0 &&
+    def.formula.trim().length > 0 &&
     (def.panel === "overlay" || def.panel === "pane") &&
     ["line", "histogram", "area"].includes(def.draw) &&
-    typeof def.color === "string" &&
+    /^#[0-9a-f]{6}$/i.test(def.color) &&
     Number.isFinite(Number(def.width)) &&
     Array.isArray(def.variables || [])
   );
 }
 
+function validationCandles() {
+  if (Array.isArray(candles) && candles.length > 40) return candles;
+  return Array.from({ length: 60 }, (_, i) => {
+    const close = 100 + Math.sin(i / 4) * 3 + i * 0.1;
+    return {
+      time: "2000-01-" + String((i % 28) + 1).padStart(2, "0"),
+      open: close - 0.5,
+      high: close + 1,
+      low: close - 1,
+      close,
+      volume: 1000 + i,
+    };
+  });
+}
+
+function normalizeImportedIndicator(def) {
+  if (!isValidIndicatorDef(def)) return null;
+
+  const seenVars = new Set();
+  const variables = [];
+  for (const raw of def.variables || []) {
+    if (!raw || typeof raw.formula !== "string") return null;
+    const name = String(raw.name || "").trim().toUpperCase();
+    const formula = raw.formula.trim();
+    if (!/^[A-Z]$/.test(name) || !formula || seenVars.has(name)) return null;
+    seenVars.add(name);
+    variables.push({ name, formula });
+  }
+
+  const normalized = {
+    name: def.name.trim(),
+    formula: def.formula.trim(),
+    panel: def.panel,
+    draw: def.draw,
+    color: def.color,
+    width: Math.max(1, Math.min(5, Math.round(Number(def.width) || 2))),
+    variables,
+  };
+
+  try {
+    evaluateFormula(normalized.formula, validationCandles(), variables);
+  } catch (_err) {
+    return null;
+  }
+
+  return normalized;
+}
+
 function importCustomIndicatorsFromFile(file) {
+  if (file.size > 1024 * 1024) {
+    setStatus("Import error: file is too large.");
+    return;
+  }
+
   const reader = new FileReader();
   reader.onload = () => {
     try {
       const parsed = JSON.parse(reader.result);
       const list = Array.isArray(parsed) ? parsed : [parsed];
-      const valid = list.filter(isValidIndicatorDef).map((def) => ({
-        name: def.name,
-        formula: def.formula,
-        panel: def.panel,
-        draw: def.draw,
-        color: def.color,
-        width: Number(def.width) || 2,
-        variables: (def.variables || []).filter(
-          (v) => v && /^[A-Z]$/.test(v.name) && typeof v.formula === "string",
-        ),
-      }));
+      const valid = list.map(normalizeImportedIndicator).filter(Boolean);
 
       if (valid.length === 0) {
         setStatus("No valid indicators found in that file.");
@@ -208,6 +253,7 @@ function importCustomIndicatorsFromFile(file) {
       setStatus("Import error: " + err.message);
     }
   };
+  reader.onerror = () => setStatus("Import error: could not read the file.");
   reader.readAsText(file);
 }
 
@@ -297,7 +343,9 @@ function calcRSI(candles, period) {
 }
 
 function rsiFromAverages(avgGain, avgLoss) {
+  if (avgGain === 0 && avgLoss === 0) return 50;
   if (avgLoss === 0) return 100;
+  if (avgGain === 0) return 0;
   const rs = avgGain / avgLoss;
   return 100 - 100 / (1 + rs);
 }
@@ -378,7 +426,7 @@ function calcATR(candles, period) {
       ),
     });
   }
-  return emaSeriesFromValues(trueRanges, period);
+  return rmaSeriesFromValues(trueRanges, period);
 }
 
 function calcVWAP(candles) {
@@ -574,7 +622,7 @@ function evalFormulaNode(
     const args = node.args.map((arg) =>
       evalFormulaNode(arg, candles, variableMap, variableCache, stack),
     );
-    return callFormulaFunction(node.name, args, candles.length);
+    return callFormulaFunction(node.name, args, candles.length, candles);
   }
   throw new Error("Invalid formula");
 }
@@ -689,10 +737,14 @@ function callFormulaFunction(name, args, length) {
     return rollingEma(asSeries(args[0], length), asPeriod(args[1]));
   if (fn === "RSI")
     return rollingRsi(asSeries(args[0], length), asPeriod(args[1]));
+  if (fn === "STDEV")
+    return rollingStdDev(asSeries(args[0], length), asPeriod(args[1]));
   if (fn === "MAX")
-    return rollingExtreme(asSeries(args[0], length), args[1], length, Math.max);
+    return rollingExtreme(asSeries(args[0], length), asPeriod(args[1]), Math.max);
   if (fn === "MIN")
-    return rollingExtreme(asSeries(args[0], length), args[1], length, Math.min);
+    return rollingExtreme(asSeries(args[0], length), asPeriod(args[1]), Math.min);
+  if (fn === "ATR")
+    return rollingAtr(candles, asPeriod(args[0]), length);
   if (fn === "ABS") return mapSeries(args[0], Math.abs, length);
   throw new Error(`Unknown function "${name}"`);
 }
@@ -790,34 +842,113 @@ function rollingEma(series, period) {
   return { kind: "series", values };
 }
 
+function rollingStdDev(series, period) {
+  const values = Array(series.values.length).fill(null);
+  for (let i = period - 1; i < series.values.length; i++) {
+    let sum = 0;
+    let count = 0;
+    for (let j = i - period + 1; j <= i; j++) {
+      if (isValidNumber(series.values[j])) {
+        sum += series.values[j];
+        count++;
+      }
+    }
+    if (count !== period) continue;
+    const mean = sum / period;
+    let variance = 0;
+    for (let j = i - period + 1; j <= i; j++) {
+      variance += Math.pow(series.values[j] - mean, 2);
+    }
+    values[i] = Math.sqrt(variance / period);
+  }
+  return { kind: "series", values };
+}
+
+function rollingExtreme(series, period, reducer) {
+  const values = Array(series.values.length).fill(null);
+  for (let i = period - 1; i < series.values.length; i++) {
+    let value = reducer === Math.max ? -Infinity : Infinity;
+    let count = 0;
+    for (let j = i - period + 1; j <= i; j++) {
+      if (isValidNumber(series.values[j])) {
+        value = reducer(value, series.values[j]);
+        count++;
+      }
+    }
+    if (count === period) values[i] = value;
+  }
+  return { kind: "series", values };
+}
+
+function rmaSeriesFromValues(series, period) {
+  const out = [];
+  let prev = null;
+  for (let i = 0; i < series.length; i++) {
+    const value = series[i].value;
+    if (!isValidNumber(value)) continue;
+    if (prev == null) {
+      if (i < period - 1) continue;
+      let sum = 0;
+      let count = 0;
+      for (let j = i - period + 1; j <= i; j++) {
+        if (isValidNumber(series[j].value)) {
+          sum += series[j].value;
+          count++;
+        }
+      }
+      if (count !== period) continue;
+      prev = sum / period;
+    } else {
+      prev = (prev * (period - 1) + value) / period;
+    }
+    out.push({ time: series[i].time, value: prev });
+  }
+  return out;
+}
+
+function rollingAtr(candles, period, length) {
+  const values = Array(length).fill(null);
+  const data = calcATR(candles, period);
+  const timeIndex = new Map(candles.map((c, i) => [c.time, i]));
+  for (const point of data) {
+    const i = timeIndex.get(point.time);
+    if (i != null) values[i] = point.value;
+  }
+  return { kind: "series", values };
+}
+
 function rollingRsi(series, period) {
   const values = Array(series.values.length).fill(null);
   let avgGain = null;
   let avgLoss = null;
+  let start = 0;
   for (let i = 1; i < series.values.length; i++) {
     if (
       !isValidNumber(series.values[i]) ||
       !isValidNumber(series.values[i - 1])
-    )
+    ) {
+      avgGain = null;
+      avgLoss = null;
+      start = i;
       continue;
-    if (i === period) {
+    }
+    if (avgGain == null || avgLoss == null) {
+      if (i - start < period) continue;
       let gainSum = 0;
       let lossSum = 0;
-      for (let j = 1; j <= period; j++) {
+      for (let j = i - period + 1; j <= i; j++) {
         const diff = series.values[j] - series.values[j - 1];
         if (diff >= 0) gainSum += diff;
         else lossSum -= diff;
       }
       avgGain = gainSum / period;
       avgLoss = lossSum / period;
-    } else if (i > period && avgGain != null && avgLoss != null) {
+    } else {
       const diff = series.values[i] - series.values[i - 1];
       avgGain = (avgGain * (period - 1) + Math.max(diff, 0)) / period;
       avgLoss = (avgLoss * (period - 1) + Math.max(-diff, 0)) / period;
     }
-    if (i >= period && avgGain != null && avgLoss != null) {
-      values[i] = rsiFromAverages(avgGain, avgLoss);
-    }
+    values[i] = rsiFromAverages(avgGain, avgLoss);
   }
   return { kind: "series", values };
 }

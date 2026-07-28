@@ -109,14 +109,14 @@
   </aside>
 </main>
 
-<div id="stock-modal-backdrop" class="stock-modal-backdrop" hidden>
-  <div class="stock-modal">
+<div id="stock-modal-backdrop" class="stock-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="stock-modal-title" hidden>
+  <div class="stock-modal" tabindex="-1">
     <div class="stock-modal-head">
       <div>
-        <h2>Load Stock</h2>
+        <h2 id="stock-modal-title">Load Stock</h2>
         <p>Search dummy stock names and load the matching CSV.</p>
       </div>
-      <button id="stock-close-btn" class="icon-btn" type="button">x</button>
+      <button id="stock-close-btn" class="icon-btn" type="button" aria-label="Close">x</button>
     </div>
 
     <input
@@ -129,20 +129,17 @@
 
     <div id="stock-list" class="stock-list"></div>
 
-    <div class="stock-help">
-      Auto-loads <strong>SAMPLE</strong> on startup.
-    </div>
   </div>
 </div>
 
-<div id="custom-modal" class="modal-backdrop" hidden>
-  <div class="modal custom-modal">
+<div id="custom-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="custom-modal-title" hidden>
+  <div class="modal custom-modal" tabindex="-1">
     <div class="modal-head">
       <div>
-        <h2>Custom Indicator</h2>
+        <h2 id="custom-modal-title">Custom Indicator</h2>
         <p>Build a formula from fields, functions, and optional variables.</p>
       </div>
-      <button id="custom-close" class="icon-btn" type="button" title="Close">x</button>
+      <button id="custom-close" class="icon-btn" type="button" aria-label="Close">x</button>
     </div>
 
     <form id="custom-form" class="custom-form">
@@ -187,6 +184,8 @@
             <option value="RSI(close,14)">RSI</option>
             <option value="MAX(high,14)">MAX</option>
             <option value="MIN(low,14)">MIN</option>
+            <option value="STDEV(close,20)">STDEV</option>
+            <option value="ATR(14)">ATR</option>
             <option value="ABS(close-open)">ABS</option>
           </select>
 
@@ -274,11 +273,11 @@
   </div>
 </div>
 
-<div id="formula-modal" class="modal-backdrop" hidden>
-  <div class="modal guide-modal">
+<div id="formula-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="formula-modal-title" hidden>
+  <div class="modal guide-modal" tabindex="-1">
     <div class="modal-head">
-      <h2>Formula Guide</h2>
-      <button id="formula-close" class="icon-btn" type="button">x</button>
+      <h2 id="formula-modal-title">Formula Guide</h2>
+      <button id="formula-close" class="icon-btn" type="button" aria-label="Close">x</button>
     </div>
 
     <div class="formula-guide">
@@ -294,7 +293,7 @@
 
       <section>
         <h3>Functions</h3>
-        <p><code>SMA(series, period)</code>, <code>EMA(series, period)</code>, <code>RSI(series, period)</code>, <code>MAX(series, period)</code>, <code>MIN(series, period)</code>, <code>ABS(value)</code></p>
+        <p><code>SMA(series, period)</code>, <code>EMA(series, period)</code>, <code>RSI(series, period)</code>, <code>MAX(series, period)</code>, <code>MIN(series, period)</code>, <code>STDEV(series, period)</code>, <code>ATR(period)</code>, <code>ABS(value)</code></p>
       </section>
 
       <section>
@@ -310,8 +309,16 @@
   <span id="status-msg"></span>
 </footer>
 
-<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+window.handleLibraryError = function (name) {
+  var msg = "Startup error: " + name + " could not be loaded. Check your connection or vendor the library locally.";
+  var el = document.getElementById("status-msg");
+  if (el) el.textContent = msg;
+  else alert(msg);
+};
+</script>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js" onerror="handleLibraryError('Papa Parse')"></script>
+<script src="https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js" onerror="handleLibraryError('Lightweight Charts')"></script>
 
 <script src="indicators.js"></script>
 <script src="drawing-tools.js"></script>

@@ -19,6 +19,7 @@ const DUMMY_STOCKS = [
 const LAST_STOCK_KEY = "chartlab.lastStock.v1";
 const CUSTOM_KEY = "chartlab.customIndicators.v1";
 const DEFAULT_PANE_HEIGHT = 160;
+const DEFAULT_VISIBLE_BARS = 120;
 
 let colorIndex = 0;
 function nextColor() {
@@ -34,7 +35,7 @@ const {
   AreaSeries,
   CrosshairMode,
   LineStyle,
-} = LightweightCharts;
+} = window.LightweightCharts || {};
 
 const CHART_OPTIONS = {
   layout: {
@@ -55,7 +56,7 @@ const CHART_OPTIONS = {
   timeScale: { borderColor: "#363a4a" },
   autoSize: true,
   crosshair: {
-    mode: CrosshairMode.Normal,
+    mode: CrosshairMode?.Normal ?? 0,
     vertLine: { color: "#3179f5", labelBackgroundColor: "#3179f5" },
     horzLine: { color: "#3179f5", labelBackgroundColor: "#3179f5" },
   },
@@ -78,6 +79,42 @@ const stockBtn = document.getElementById("stock-selector-btn");
 const stockSearchInput = document.getElementById("stock-search-input");
 const stockListEl = document.getElementById("stock-list");
 const stockLabelEl = document.getElementById("stock-current-label");
+let activeModal = null;
+let modalStack = [];
+
+function focusableElements(root) {
+  return Array.from(
+    root.querySelectorAll(
+      "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+    ),
+  ).filter((el) => el.offsetParent !== null);
+}
+
+function openModal(modal, preferredFocus) {
+  if (!modal) return;
+  modalStack = modalStack.filter((entry) => entry.modal !== modal);
+  modalStack.push({ modal, returnFocus: document.activeElement });
+  activeModal = modal;
+  modal.hidden = false;
+  const target =
+    preferredFocus ||
+    focusableElements(modal)[0] ||
+    modal.querySelector("[tabindex='-1']");
+  if (target) target.focus();
+}
+
+function closeModal(modal) {
+  if (!modal) return;
+  modal.hidden = true;
+  const index = modalStack.findIndex((entry) => entry.modal === modal);
+  const entry = index >= 0 ? modalStack.splice(index, 1)[0] : null;
+  activeModal = modalStack.length
+    ? modalStack[modalStack.length - 1].modal
+    : null;
+  if (entry?.returnFocus && typeof entry.returnFocus.focus === "function") {
+    entry.returnFocus.focus();
+  }
+}
 
 function setStatus(msg) {
   const el = document.getElementById("status-msg");
@@ -169,17 +206,15 @@ function loadStockByName(name) {
 
 function openStockModal() {
   if (!stockModal) return;
-  stockModal.hidden = false;
   if (stockSearchInput) {
     stockSearchInput.value = "";
     renderStockList();
-    stockSearchInput.focus();
   }
+  openModal(stockModal, stockSearchInput);
 }
 
 function closeStockModal() {
-  if (!stockModal) return;
-  stockModal.hidden = true;
+  closeModal(stockModal);
 }
 
 function renderStockList() {
@@ -240,8 +275,25 @@ if (stockSearchInput) {
 }
 
 window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && stockModal && !stockModal.hidden) {
-    closeStockModal();
+  if (!activeModal) return;
+  if (e.key === "Escape") {
+    e.preventDefault();
+    if (activeModal === stockModal) closeStockModal();
+    else if (activeModal.id === "custom-modal") closeCustomModal();
+    else if (activeModal.id === "formula-modal") closeFormulaModal();
+    return;
+  }
+  if (e.key !== "Tab") return;
+  const items = focusableElements(activeModal);
+  if (!items.length) return;
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
   }
 });
 
@@ -278,7 +330,7 @@ function loadData(rows, fileName, label = fileName) {
   }
 
   candleSeries.setData(candles);
-  chart.timeScale().fitContent();
+  zoomToRecentCandles();
 
   indicators.forEach((ind) => {
     ind.series.forEach((s) => chart.removeSeries(s.series));
@@ -306,6 +358,10 @@ function loadData(rows, fileName, label = fileName) {
 }
 
 function createCharts() {
+  if (drawingManager) {
+    drawingManager.destroy();
+    drawingManager = null;
+  }
   chart = LightweightCharts.createChart(mainChartEl, CHART_OPTIONS);
 
   candleSeries = chart.addSeries(CandlestickSeries, {
@@ -797,8 +853,7 @@ function renderVariableList() {
 
 function readCustomForm() {
   return {
-    name:
-      document.getElementById("custom-name").value.trim() || "Custom Indicator",
+    name: document.getElementById("custom-name").value.trim(),
     formula: document.getElementById("custom-formula").value.trim(),
     panel: document.getElementById("custom-panel").value,
     draw: document.getElementById("custom-draw").value,
@@ -814,12 +869,26 @@ function openCustomModal() {
   renderVariableInsertOptions();
   renderPresetOptions();
   document.getElementById("preset-select").value = "";
-  document.getElementById("custom-modal").hidden = false;
-  document.getElementById("custom-formula").focus();
+  openModal(
+    document.getElementById("custom-modal"),
+    document.getElementById("custom-formula"),
+  );
+}
+
+function zoomToRecentCandles() {
+  if (!chart || candles.length === 0) return;
+  if (candles.length <= DEFAULT_VISIBLE_BARS) {
+    chart.timeScale().fitContent();
+    return;
+  }
+  chart.timeScale().setVisibleLogicalRange({
+    from: candles.length - DEFAULT_VISIBLE_BARS,
+    to: candles.length + 5,
+  });
 }
 
 function closeCustomModal() {
-  document.getElementById("custom-modal").hidden = true;
+  closeModal(document.getElementById("custom-modal"));
   document.getElementById("ind-type").value = "sma";
   renderParamFields();
 }
@@ -834,14 +903,14 @@ function loadCustomIndicators() {
 }
 
 function saveCustomIndicator(def) {
+  const normalizedImport = normalizeImportedIndicator(def);
+  if (!normalizedImport) {
+    setStatus("Custom indicator is invalid. Check name, formula, variables, color, and width.");
+    return false;
+  }
+
   const normalized = {
-    name: def.name,
-    formula: def.formula,
-    panel: def.panel,
-    draw: def.draw,
-    color: def.color,
-    width: def.width,
-    variables: Array.isArray(def.variables) ? def.variables : [],
+    ...normalizedImport,
   };
 
   const withoutDuplicate = customIndicators.filter(
@@ -852,6 +921,7 @@ function saveCustomIndicator(def) {
   customIndicators = [normalized, ...withoutDuplicate].slice(0, 20);
   localStorage.setItem(CUSTOM_KEY, JSON.stringify(customIndicators));
   renderCustomOptions();
+  return true;
 }
 
 function renderCustomOptions() {
@@ -949,11 +1019,17 @@ function setupCustomModal() {
     }
 
     const def = readCustomForm();
-    if (document.getElementById("custom-save").checked) {
-      saveCustomIndicator(def);
+    const normalizedDef = normalizeImportedIndicator(def);
+    if (!normalizedDef) {
+      setStatus("Custom indicator is invalid. Check name, formula, variables, color, and width.");
+      return;
     }
 
-    addIndicator("custom", def);
+    if (document.getElementById("custom-save").checked) {
+      if (!saveCustomIndicator(normalizedDef)) return;
+    }
+
+    addIndicator("custom", normalizedDef);
     closeCustomModal();
   });
 }
@@ -983,17 +1059,21 @@ document
     addIndicator(type, params);
   });
 
-document.getElementById("formula-help-btn").addEventListener("click", () => {
-  document.getElementById("formula-modal").hidden = false;
-});
+function openFormulaModal() {
+  openModal(document.getElementById("formula-modal"));
+}
 
-document.getElementById("formula-close").addEventListener("click", () => {
-  document.getElementById("formula-modal").hidden = true;
-});
+function closeFormulaModal() {
+  closeModal(document.getElementById("formula-modal"));
+}
+
+document.getElementById("formula-help-btn").addEventListener("click", openFormulaModal);
+
+document.getElementById("formula-close").addEventListener("click", closeFormulaModal);
 
 document.getElementById("formula-modal").addEventListener("click", (e) => {
   if (e.target.id === "formula-modal") {
-    document.getElementById("formula-modal").hidden = true;
+    closeFormulaModal();
   }
 });
 
@@ -1014,11 +1094,15 @@ document
   });
 
 function init() {
+  if (!window.Papa || !window.LightweightCharts) {
+    setStatus("Startup error: required chart libraries were not loaded.");
+    return;
+  }
   createCharts();
   renderCustomOptions();
   setupCustomModal();
 
-  const lastStock = localStorage.getItem(LAST_STOCK_KEY) || "SAMPLE";
+  const lastStock = localStorage.getItem(LAST_STOCK_KEY) || "SAMPLE01";
   if (stockLabelEl) stockLabelEl.textContent = lastStock;
 
   loadStockByName(lastStock);
