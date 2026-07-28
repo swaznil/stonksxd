@@ -105,22 +105,24 @@ Optional column:
 ## Project Structure
 
 ```text
-stonksxd/
-|
-|-- index.html
-|-- app.js
-|-- indicators.js
-|-- drawing-tools.js
-|-- style.css
-|-- custom-indicator.css
-|-- README.md
-|
-`-- data/
-    |-- sample01.csv
-    |-- sample02.csv
-    |-- sample03.csv
-    |-- sample04.csv
-    `-- sample05.csv
+stonksxd
+├── README.md
+├── app.js
+├── assets
+│   ├── screenshotchart.png
+│   ├── screenshotfront.png
+│   └── screenshotindicator.png
+├── custom-indicator.css
+├── data
+│   ├── sample01.csv
+│   ├── sample02.csv
+│   ├── sample03.csv
+│   ├── sample04.csv
+│   └── sample05.csv
+├── drawing-tools.js
+├── index.html
+├── indicators.js
+└── style.css
 ```
 
 ---

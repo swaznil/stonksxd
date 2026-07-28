@@ -63,8 +63,7 @@ textarea {
   border-bottom: 1px solid var(--rule-strong);
   background: var(--panel);
 }
-.theme-toggle,
-.range-controls button {
+.theme-toggle {
   padding: 7px 10px;
   font-family: var(--mono);
   font-size: 11px;
@@ -174,32 +173,12 @@ button:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
   justify-content: space-between;
   padding: 8px 16px;
   border-bottom: 1px solid var(--rule);
   color: var(--muted);
   font-family: var(--mono);
   font-size: 12px;
-}
-.range-controls {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-}
-.range-controls button {
-  padding: 4px 7px;
-  color: var(--muted);
-  background: transparent;
-  border-color: transparent;
-}
-.range-controls button.active {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-.range-controls button:hover {
-  color: var(--accent);
 }
 #series-title,
 .ohlc-readout {

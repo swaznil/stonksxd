@@ -19,10 +19,7 @@ const DUMMY_STOCKS = [
 const LAST_STOCK_KEY = "chartlab.lastStock.v1";
 const CUSTOM_KEY = "chartlab.customIndicators.v1";
 const DEFAULT_PANE_HEIGHT = 160;
-const RANGE_BARS = { "1D": 1, "1W": 7, "1M": 30, "1Y": 365 };
-const savedRange = localStorage.getItem("chartlab.range.v1");
-let selectedRange =
-  savedRange === "ALL" || RANGE_BARS[savedRange] ? savedRange : "1Y";
+const DEFAULT_VISIBLE_BARS = 260;
 let isLightTheme = localStorage.getItem("chartlab.theme.v1") === "light";
 
 let colorIndex = 0;
@@ -335,7 +332,7 @@ function loadData(rows, fileName, label = fileName) {
   }
 
   candleSeries.setData(candles);
-  zoomToRange(selectedRange);
+  zoomToDefaultView();
 
   indicators.forEach((ind) => {
     ind.series.forEach((s) => chart.removeSeries(s.series));
@@ -880,35 +877,17 @@ function openCustomModal() {
   );
 }
 
-function zoomToRange(range = selectedRange) {
+function zoomToDefaultView() {
   if (!chart || candles.length === 0) return;
-  const bars = RANGE_BARS[range];
-  if (!bars || range === "ALL" || candles.length <= bars) {
+  if (candles.length <= DEFAULT_VISIBLE_BARS) {
     chart.timeScale().fitContent();
     return;
   }
   chart.timeScale().setVisibleLogicalRange({
-    from: Math.max(0, candles.length - bars),
-    to: candles.length + 5,
+    from: Math.max(0, candles.length - DEFAULT_VISIBLE_BARS),
+    to: candles.length + 8,
   });
 }
-
-function setRange(range) {
-  if (!range || (range !== "ALL" && !RANGE_BARS[range])) return;
-  selectedRange = range;
-  localStorage.setItem("chartlab.range.v1", range);
-  document.querySelectorAll("[data-range]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.range === range);
-  });
-  zoomToRange(range);
-}
-
-document
-  .getElementById("range-controls")
-  ?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-range]");
-    if (button) setRange(button.dataset.range);
-  });
 
 function applyTheme(light) {
   isLightTheme = light;
@@ -1161,7 +1140,6 @@ function init() {
   }
   createCharts();
   applyTheme(isLightTheme);
-  setRange(selectedRange);
   renderCustomOptions();
   setupCustomModal();
 
