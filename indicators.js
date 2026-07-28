@@ -191,7 +191,9 @@ function normalizeImportedIndicator(def) {
   const variables = [];
   for (const raw of def.variables || []) {
     if (!raw || typeof raw.formula !== "string") return null;
-    const name = String(raw.name || "").trim().toUpperCase();
+    const name = String(raw.name || "")
+      .trim()
+      .toUpperCase();
     const formula = raw.formula.trim();
     if (!/^[A-Z]$/.test(name) || !formula || seenVars.has(name)) return null;
     seenVars.add(name);
@@ -740,11 +742,18 @@ function callFormulaFunction(name, args, length) {
   if (fn === "STDEV")
     return rollingStdDev(asSeries(args[0], length), asPeriod(args[1]));
   if (fn === "MAX")
-    return rollingExtreme(asSeries(args[0], length), asPeriod(args[1]), Math.max);
+    return rollingExtreme(
+      asSeries(args[0], length),
+      asPeriod(args[1]),
+      Math.max,
+    );
   if (fn === "MIN")
-    return rollingExtreme(asSeries(args[0], length), asPeriod(args[1]), Math.min);
-  if (fn === "ATR")
-    return rollingAtr(candles, asPeriod(args[0]), length);
+    return rollingExtreme(
+      asSeries(args[0], length),
+      asPeriod(args[1]),
+      Math.min,
+    );
+  if (fn === "ATR") return rollingAtr(candles, asPeriod(args[0]), length);
   if (fn === "ABS") return mapSeries(args[0], Math.abs, length);
   throw new Error(`Unknown function "${name}"`);
 }

@@ -21,7 +21,8 @@ const CUSTOM_KEY = "chartlab.customIndicators.v1";
 const DEFAULT_PANE_HEIGHT = 160;
 const RANGE_BARS = { "1D": 1, "1W": 7, "1M": 30, "1Y": 365 };
 const savedRange = localStorage.getItem("chartlab.range.v1");
-let selectedRange = savedRange === "ALL" || RANGE_BARS[savedRange] ? savedRange : "1Y";
+let selectedRange =
+  savedRange === "ALL" || RANGE_BARS[savedRange] ? savedRange : "1Y";
 let isLightTheme = localStorage.getItem("chartlab.theme.v1") === "light";
 
 let colorIndex = 0;
@@ -902,10 +903,12 @@ function setRange(range) {
   zoomToRange(range);
 }
 
-document.getElementById("range-controls")?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-range]");
-  if (button) setRange(button.dataset.range);
-});
+document
+  .getElementById("range-controls")
+  ?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-range]");
+    if (button) setRange(button.dataset.range);
+  });
 
 function applyTheme(light) {
   isLightTheme = light;
@@ -913,12 +916,21 @@ function applyTheme(light) {
   localStorage.setItem("chartlab.theme.v1", light ? "light" : "dark");
   if (themeToggle) {
     themeToggle.textContent = light ? "☾ Dark" : "☀ Light";
-    themeToggle.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
+    themeToggle.setAttribute(
+      "aria-label",
+      light ? "Switch to dark theme" : "Switch to light theme",
+    );
   }
   if (chart) {
     chart.applyOptions({
-      layout: { background: { color: light ? "#f7f9fc" : "#131722" }, textColor: light ? "#202532" : "#d1d4dc" },
-      grid: { vertLines: { color: light ? "#e7ebf2" : "#1c2030" }, horzLines: { color: light ? "#e7ebf2" : "#1c2030" } },
+      layout: {
+        background: { color: light ? "#f7f9fc" : "#131722" },
+        textColor: light ? "#202532" : "#d1d4dc",
+      },
+      grid: {
+        vertLines: { color: light ? "#e7ebf2" : "#1c2030" },
+        horzLines: { color: light ? "#e7ebf2" : "#1c2030" },
+      },
       rightPriceScale: { borderColor: light ? "#cbd2df" : "#363a4a" },
       timeScale: { borderColor: light ? "#cbd2df" : "#363a4a" },
     });
@@ -946,7 +958,9 @@ function loadCustomIndicators() {
 function saveCustomIndicator(def) {
   const normalizedImport = normalizeImportedIndicator(def);
   if (!normalizedImport) {
-    setStatus("Custom indicator is invalid. Check name, formula, variables, color, and width.");
+    setStatus(
+      "Custom indicator is invalid. Check name, formula, variables, color, and width.",
+    );
     return false;
   }
 
@@ -1062,7 +1076,9 @@ function setupCustomModal() {
     const def = readCustomForm();
     const normalizedDef = normalizeImportedIndicator(def);
     if (!normalizedDef) {
-      setStatus("Custom indicator is invalid. Check name, formula, variables, color, and width.");
+      setStatus(
+        "Custom indicator is invalid. Check name, formula, variables, color, and width.",
+      );
       return;
     }
 
@@ -1108,9 +1124,13 @@ function closeFormulaModal() {
   closeModal(document.getElementById("formula-modal"));
 }
 
-document.getElementById("formula-help-btn").addEventListener("click", openFormulaModal);
+document
+  .getElementById("formula-help-btn")
+  .addEventListener("click", openFormulaModal);
 
-document.getElementById("formula-close").addEventListener("click", closeFormulaModal);
+document
+  .getElementById("formula-close")
+  .addEventListener("click", closeFormulaModal);
 
 document.getElementById("formula-modal").addEventListener("click", (e) => {
   if (e.target.id === "formula-modal") {

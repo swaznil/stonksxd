@@ -285,7 +285,11 @@ class HorizontalLinePrimitive extends DrawingPrimitiveBase {
 
     ctx.save();
     ctx.strokeStyle = this.color;
-    ctx.lineWidth = scaleLineWidth(this.preview ? 1.75 : 2, horizontalPixelRatio, verticalPixelRatio);
+    ctx.lineWidth = scaleLineWidth(
+      this.preview ? 1.75 : 2,
+      horizontalPixelRatio,
+      verticalPixelRatio,
+    );
     ctx.setLineDash([]);
     ctx.beginPath();
     ctx.moveTo(0, y * verticalPixelRatio);
@@ -331,7 +335,11 @@ class VerticalLinePrimitive extends DrawingPrimitiveBase {
 
     ctx.save();
     ctx.strokeStyle = this.color;
-    ctx.lineWidth = scaleLineWidth(this.preview ? 1.75 : 2, horizontalPixelRatio, verticalPixelRatio);
+    ctx.lineWidth = scaleLineWidth(
+      this.preview ? 1.75 : 2,
+      horizontalPixelRatio,
+      verticalPixelRatio,
+    );
     ctx.setLineDash([]);
     ctx.beginPath();
     ctx.moveTo(x * horizontalPixelRatio, 0);
@@ -387,7 +395,11 @@ class FibRetracementPrimitive extends DrawingPrimitiveBase {
 
       const color = FIB_COLORS[i % FIB_COLORS.length];
       ctx.strokeStyle = color;
-      ctx.lineWidth = scaleLineWidth(1.25, horizontalPixelRatio, verticalPixelRatio);
+      ctx.lineWidth = scaleLineWidth(
+        1.25,
+        horizontalPixelRatio,
+        verticalPixelRatio,
+      );
       ctx.setLineDash([]);
       ctx.beginPath();
       ctx.moveTo(xLeft * horizontalPixelRatio, y * verticalPixelRatio);
@@ -463,7 +475,11 @@ class PriceRangePrimitive extends DrawingPrimitiveBase {
     ctx.save();
     ctx.fillStyle = fill;
     ctx.strokeStyle = stroke;
-    ctx.lineWidth = scaleLineWidth(1.25, horizontalPixelRatio, verticalPixelRatio);
+    ctx.lineWidth = scaleLineWidth(
+      1.25,
+      horizontalPixelRatio,
+      verticalPixelRatio,
+    );
     ctx.setLineDash([]);
     ctx.fillRect(xLeft, yTop, xRight - xLeft, yBottom - yTop);
     ctx.strokeRect(xLeft, yTop, xRight - xLeft, yBottom - yTop);
