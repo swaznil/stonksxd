@@ -1,4 +1,4 @@
-const DRAW_COLOR = "#e0a537";
+const DRAW_COLOR = "#4c8dff";
 const ACTIVE_HIT_RADIUS = 8;
 const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
 const FIB_COLORS = [
@@ -75,11 +75,46 @@ function rectContains(px, py, x1, y1, x2, y2) {
   return px >= left && px <= right && py >= top && py <= bottom;
 }
 
+function colorWithAlpha(color, alpha) {
+  const hex = String(color).replace("#", "");
+  const normalized =
+    hex.length === 3
+      ? hex
+          .split("")
+          .map((part) => part + part)
+          .join("")
+      : hex;
+  if (!/^[0-9a-f]{6}$/i.test(normalized)) {
+    return `rgba(76, 141, 255, ${alpha})`;
+  }
+  const value = Number.parseInt(normalized, 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
 class DrawingPrimitiveBase {
   constructor(chart, series) {
     this._chart = chart;
     this._series = series;
     this._paneViews = [this._makePaneView()];
+    this._requestUpdate = null;
+  }
+
+  attached({ requestUpdate }) {
+    this._requestUpdate = requestUpdate;
+  }
+
+  detached() {
+    this._requestUpdate = null;
+  }
+
+  setColor(color) {
+    if (!("color" in this)) return false;
+    this.color = color;
+    this._requestUpdate?.();
+    return true;
   }
 
   updateAllViews() {}
@@ -522,6 +557,68 @@ class PriceRangePrimitive extends DrawingPrimitiveBase {
   }
 }
 
+class RectanglePrimitive extends DrawingPrimitiveBase {
+  constructor(chart, series, p1, p2, color) {
+    super(chart, series);
+    this.p1 = p1;
+    this.p2 = p2;
+    this.color = color || DRAW_COLOR;
+  }
+
+  _draw({ context: ctx, horizontalPixelRatio, verticalPixelRatio }) {
+    const x1 = this._timeToX(this.p1.time);
+    const x2 = this._timeToX(this.p2.time);
+    const y1 = this._priceToY(this.p1.price);
+    const y2 = this._priceToY(this.p2.price);
+    if ([x1, x2, y1, y2].some((v) => v == null)) return;
+
+    const left = Math.min(x1, x2) * horizontalPixelRatio;
+    const top = Math.min(y1, y2) * verticalPixelRatio;
+    const width = Math.abs(x2 - x1) * horizontalPixelRatio;
+    const height = Math.abs(y2 - y1) * verticalPixelRatio;
+
+    ctx.save();
+    ctx.fillStyle = colorWithAlpha(this.color, 0.14);
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = scaleLineWidth(
+      1.5,
+      horizontalPixelRatio,
+      verticalPixelRatio,
+    );
+    ctx.setLineDash([]);
+    ctx.fillRect(left, top, width, height);
+    ctx.strokeRect(left, top, width, height);
+    ctx.restore();
+  }
+
+  hitTest(x, y) {
+    const x1 = this._timeToX(this.p1.time);
+    const x2 = this._timeToX(this.p2.time);
+    const y1 = this._priceToY(this.p1.price);
+    const y2 = this._priceToY(this.p2.price);
+    if ([x1, x2, y1, y2].some((v) => v == null)) return null;
+    if (rectContains(x, y, x1, y1, x2, y2)) {
+      return { distance: 0, label: "Rectangle" };
+    }
+    const d = Math.min(
+      pointToSegmentDistance(x, y, x1, y1, x2, y1),
+      pointToSegmentDistance(x, y, x2, y1, x2, y2),
+      pointToSegmentDistance(x, y, x2, y2, x1, y2),
+      pointToSegmentDistance(x, y, x1, y2, x1, y1),
+    );
+    return d <= ACTIVE_HIT_RADIUS ? { distance: d, label: "Rectangle" } : null;
+  }
+
+  getHandlePoint() {
+    const x1 = this._timeToX(this.p1.time);
+    const x2 = this._timeToX(this.p2.time);
+    const y1 = this._priceToY(this.p1.price);
+    const y2 = this._priceToY(this.p2.price);
+    if ([x1, x2, y1, y2].some((v) => v == null)) return null;
+    return { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
+  }
+}
+
 const TOOLS = [
   { id: "cursor", label: "Cursor", points: 0, icon: "cursor" },
   { id: "trendline", label: "Trend Line", points: 2, icon: "trendline" },
@@ -529,6 +626,7 @@ const TOOLS = [
   { id: "horizontal", label: "Horizontal Line", points: 1, icon: "horizontal" },
   { id: "vertical", label: "Vertical Line", points: 1, icon: "vertical" },
   { id: "fib", label: "Fib Retracement", points: 2, icon: "fib" },
+  { id: "rectangle", label: "Rectangle Area", points: 2, icon: "rectangle" },
   { id: "pricerange", label: "Price Range", points: 2, icon: "pricerange" },
   { id: "remove", label: "Remove All Drawings", points: 0, icon: "trash" },
 ];
@@ -545,7 +643,9 @@ class DrawingToolManager {
     this.preview = null;
     this.hover = null;
     this.hoveredDrawing = null;
+    this.currentColor = DRAW_COLOR;
     this._seq = 0;
+    this._deleteHovered = false;
 
     this._onMove = this._onMove.bind(this);
     this._onClick = this._onClick.bind(this);
@@ -554,6 +654,31 @@ class DrawingToolManager {
     this._onLeave = this._onLeave.bind(this);
 
     container.style.position = container.style.position || "relative";
+
+    this._deleteButton = document.createElement("button");
+    this._deleteButton.type = "button";
+    this._deleteButton.className = "chart-drawing-delete";
+    this._deleteButton.title = "Delete drawing";
+    this._deleteButton.setAttribute("aria-label", "Delete drawing");
+    this._deleteButton.innerHTML =
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12M9 7V5h6v2M8 7l1 12h6l1-12M11 10v6M13 10v6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    this._deleteButton.hidden = true;
+    this._deleteButton.addEventListener("pointerenter", () => {
+      this._deleteHovered = true;
+    });
+    this._deleteButton.addEventListener("pointerleave", () => {
+      this._deleteHovered = false;
+    });
+    this._deleteButton.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    this._deleteButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (this.hoveredDrawing) this.removeDrawing(this.hoveredDrawing.id);
+    });
+    container.appendChild(this._deleteButton);
 
     container.addEventListener("click", this._onClick);
     container.addEventListener("contextmenu", this._onContext);
@@ -575,7 +700,13 @@ class DrawingToolManager {
     this.pendingPoints = [];
     this._clearPreview();
     this.hoveredDrawing = null;
+    this._hideDelete();
     this._syncCursor();
+  }
+
+  setColor(color) {
+    if (!/^#[0-9a-f]{6}$/i.test(color)) return;
+    this.currentColor = color;
   }
 
   _syncCursor() {
@@ -593,6 +724,7 @@ class DrawingToolManager {
     this.drawings = [];
     this.pendingPoints = [];
     this.hoveredDrawing = null;
+    this._hideDelete();
   }
 
   destroy() {
@@ -602,6 +734,7 @@ class DrawingToolManager {
     this.container.removeEventListener("mouseleave", this._onLeave);
     this.chart.unsubscribeCrosshairMove?.(this._onMove);
     window.removeEventListener("keydown", this._onKeyDown);
+    this._deleteButton?.remove();
   }
 
   removeDrawing(id) {
@@ -610,6 +743,7 @@ class DrawingToolManager {
     this.series.detachPrimitive(this.drawings[idx].primitive);
     this.drawings.splice(idx, 1);
     this.hoveredDrawing = null;
+    this._hideDelete();
     this._syncCursor();
   }
 
@@ -658,13 +792,34 @@ class DrawingToolManager {
   }
 
   _showDelete(drawing, param) {
+    const sameDrawing =
+      this.hoveredDrawing?.id === drawing.id && !this._deleteButton.hidden;
     this.hoveredDrawing = drawing;
+    if (!sameDrawing) {
+      const point = param?.point || drawing.primitive.getHandlePoint?.();
+      if (point) {
+        const buttonSize = 30;
+        const left = clamp(point.x + 12,6,this.container.clientWidth - buttonSize - 6,);
+        const top = clamp(point.y - buttonSize / 2,6,this.container.clientHeight - buttonSize - 6,);
+        this._deleteButton.style.left = `${left}px`;
+        this._deleteButton.style.top = `${top}px`;
+      }
+    }
+    this._deleteButton.hidden = false;
     this._syncCursor();
+  }
+
+  _hideDelete() {
+    if (!this._deleteButton) return;
+    this._deleteButton.hidden = true;
+    this._deleteHovered = false;
   }
 
   _onLeave() {
     this.hover = null;
+    if (this._deleteHovered) return;
     this.hoveredDrawing = null;
+    this._hideDelete();
     this._syncCursor();
   }
 
@@ -675,8 +830,9 @@ class DrawingToolManager {
       const hovered = this._findHoveredDrawing(param);
       if (hovered) {
         this._showDelete(hovered.drawing, param);
-      } else {
+      } else if (!this._deleteHovered) {
         this.hoveredDrawing = null;
+        this._hideDelete();
       }
       this._syncCursor();
     }
@@ -695,7 +851,7 @@ class DrawingToolManager {
           this.series,
           first,
           p,
-          DRAW_COLOR,
+          this.currentColor,
         );
         break;
       case "ray":
@@ -704,7 +860,7 @@ class DrawingToolManager {
           this.series,
           first,
           p,
-          DRAW_COLOR,
+          this.currentColor,
         );
         break;
       case "fib":
@@ -723,12 +879,21 @@ class DrawingToolManager {
           p,
         );
         break;
+      case "rectangle":
+        this.preview = new RectanglePrimitive(
+          this.chart,
+          this.series,
+          first,
+          p,
+          this.currentColor,
+        );
+        break;
       case "horizontal":
         this.preview = new HorizontalLinePrimitive(
           this.chart,
           this.series,
           p.price,
-          DRAW_COLOR,
+          this.currentColor,
           true,
         );
         break;
@@ -737,7 +902,7 @@ class DrawingToolManager {
           this.chart,
           this.series,
           p.time,
-          DRAW_COLOR,
+          this.currentColor,
           true,
         );
         break;
@@ -784,7 +949,7 @@ class DrawingToolManager {
           this.series,
           pts[0],
           pts[1],
-          DRAW_COLOR,
+          this.currentColor,
         );
         break;
       case "ray":
@@ -793,7 +958,7 @@ class DrawingToolManager {
           this.series,
           pts[0],
           pts[1],
-          DRAW_COLOR,
+          this.currentColor,
         );
         break;
       case "horizontal":
@@ -801,7 +966,7 @@ class DrawingToolManager {
           this.chart,
           this.series,
           pts[0].price,
-          DRAW_COLOR,
+          this.currentColor,
           false,
         );
         break;
@@ -810,7 +975,7 @@ class DrawingToolManager {
           this.chart,
           this.series,
           pts[0].time,
-          DRAW_COLOR,
+          this.currentColor,
           false,
         );
         break;
@@ -828,6 +993,15 @@ class DrawingToolManager {
           this.series,
           pts[0],
           pts[1],
+        );
+        break;
+      case "rectangle":
+        primitive = new RectanglePrimitive(
+          this.chart,
+          this.series,
+          pts[0],
+          pts[1],
+          this.currentColor,
         );
         break;
       default:
@@ -855,6 +1029,7 @@ class DrawingToolManager {
       this.pendingPoints = [];
       this._clearPreview();
       this.hoveredDrawing = null;
+      this._hideDelete();
     }
     if ((e.key === "Delete" || e.key === "Backspace") && this.hoveredDrawing) {
       e.preventDefault();
@@ -870,6 +1045,7 @@ const TOOL_ICONS = {
   horizontal: `<line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1.6"/>`,
   vertical: `<line x1="12" y1="3" x2="12" y2="21" stroke="currentColor" stroke-width="1.6"/>`,
   fib: `<line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="1.2"/><line x1="3" y1="11" x2="21" y2="11" stroke="currentColor" stroke-width="1.2"/><line x1="3" y1="16" x2="21" y2="16" stroke="currentColor" stroke-width="1.2"/><line x1="3" y1="21" x2="21" y2="21" stroke="currentColor" stroke-width="1.2"/>`,
+  rectangle: `<rect x="4" y="5" width="16" height="14" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="1.6"/>`,
   pricerange: `<rect x="4" y="7" width="16" height="10" fill="none" stroke="currentColor" stroke-width="1.6"/>`,
   trash: `<path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13" fill="none" stroke="currentColor" stroke-width="1.6"/>`,
 };
@@ -896,4 +1072,24 @@ function buildDrawingToolbar(mountEl, manager) {
     if (tool.id === "cursor") btn.classList.add("active");
     mountEl.appendChild(btn);
   });
+
+  const colorWrap = document.createElement("label");
+  colorWrap.className = "draw-color-control";
+  colorWrap.title = "Drawing color";
+  colorWrap.setAttribute("aria-label", "Drawing color");
+  colorWrap.style.setProperty("--drawing-color", manager.currentColor);
+
+  const colorInput = document.createElement("input");
+  colorInput.type = "color";
+  colorInput.className = "draw-color-input";
+  colorInput.value = manager.currentColor;
+  colorInput.setAttribute("aria-label", "Choose drawing color");
+  colorInput.addEventListener("input", () => {
+    manager.setColor(colorInput.value);
+    colorWrap.style.setProperty("--drawing-color", colorInput.value);
+  });
+
+  colorWrap.appendChild(colorInput);
+  const removeButton = mountEl.querySelector('[data-tool="remove"]');
+  mountEl.insertBefore(colorWrap, removeButton);
 }

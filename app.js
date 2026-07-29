@@ -40,7 +40,7 @@ const {
 
 const CHART_OPTIONS = {
   layout: {
-    background: { color: "#131722" },
+    background: { color: "#11151e" },
     textColor: "#d1d4dc",
     fontFamily: "IBM Plex Mono, monospace",
     panes: {
@@ -50,8 +50,8 @@ const CHART_OPTIONS = {
     },
   },
   grid: {
-    vertLines: { color: "#1c2030" },
-    horzLines: { color: "#1c2030" },
+    vertLines: { color: "#212734" },
+    horzLines: { color: "#212734" },
   },
   rightPriceScale: { borderColor: "#363a4a" },
   timeScale: { borderColor: "#363a4a" },
@@ -903,12 +903,12 @@ function applyTheme(light) {
   if (chart) {
     chart.applyOptions({
       layout: {
-        background: { color: light ? "#f7f9fc" : "#131722" },
+        background: { color: light ? "#f7f9fc" : "#11151e" },
         textColor: light ? "#202532" : "#d1d4dc",
       },
       grid: {
-        vertLines: { color: light ? "#e7ebf2" : "#1c2030" },
-        horzLines: { color: light ? "#e7ebf2" : "#1c2030" },
+        vertLines: { color: light ? "#e7ebf2" : "#212734" },
+        horzLines: { color: light ? "#e7ebf2" : "#212734" },
       },
       rightPriceScale: { borderColor: light ? "#cbd2df" : "#363a4a" },
       timeScale: { borderColor: light ? "#cbd2df" : "#363a4a" },
