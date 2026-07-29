@@ -1,21 +1,19 @@
 # stonksxd
 
-StonksxD is a browser based candlestick charting and stock data playground made with vanilla HTML, CSS and JavaScript. It lets you load OHLCV csv data, view candlestick charts, add indicators, create custom formula indicators and draw directly on the chart.
+StonksxD is a browser based candlestick charting and stock data playground made with vanilla HTML, CSS and JavaScript. It lets you load OHLCV CSV data, view candlestick charts, add indicators, create custom formula indicators and draw directly on the chart.
 
 The project is meant to be lightweight and simple to run. There is no backend, no account system, no build step and no framework setup needed.
 
 
 ## Motivation
 
-I wanted to make a clean stock chart where I could load my own data, create custom indicators and in the process learn more about financial charts, technical analysis indicators and building interactive browser tools. 
+I wanted to make a clean stock chart where I could load my own data, create custom indicators and in the process learn more about financial charts, technical analysis indicators and building interactive browser tools.
 
 ## Live Demo
 
 Project can be run by cloning the repository and opening it with a local server, or directly through the link:
 
-```text
 stonksxd.vercel.app
-```
 
 ---
 
@@ -67,7 +65,7 @@ stonksxd.vercel.app
 
 ## CSV Format
 
-The csv loader expects data in this format:
+The CSV loader expects data in this format:
 
 ```text
 published_date,open,high,low,close,traded_quantity
@@ -91,7 +89,7 @@ Optional column:
 
 ## Tech Stack
 
-- HTML 5
+- HTML
 - CSS
 - JavaScript
 - LocalStorage
@@ -108,7 +106,6 @@ stonksxd
 ├── app.js
 ├── assets
 │   ├── screenshotchart.png
-│   ├── screenshotfront.png
 │   └── screenshotindicator.png
 ├── custom-indicator.css
 ├── data
@@ -127,11 +124,11 @@ stonksxd
 
 ## How It Works
 
-The app loads stock data from csv files using Papa Parse. The data is converted into daily candlestick format and then rendered on the chart using Lightweight Charts.
+The app loads data from CSV files using Papa Parse. The data is converted into daily candlestick format and then rendered on the chart using Lightweight Charts.
 
-Each candle contains open, high, low and close values. Built in indicators are calculated in JavaScript from the loaded candle data. Some indicators are drawn directly over the price chart, while others are displayed in their own pane. Custom indicators can be build using using fields like `open`, `high`, `low`, `close` and `volume`, along with functions like `SMA`, `EMA`, `RSI`, `ATR`, `MAX`, `MIN`, `STDEV` and `ABS`.
+Each candle contains open, high, low and close (OHLC) values. Built in indicators are calculated in JavaScript. Some indicators are drawn directly over the price chart, while others are displayed in their own pane. Custom indicators can be build using fields like `open`, `high`, `low`, `close` and `volume`, along with functions like `SMA`, `EMA`, `RSI`, `ATR`, `MAX`, `MIN`, `STDEV` and `ABS`.
 
-Drawings are handled separately from the indicators, so you can mark up the chart using lines, rays, rectangles, fibonacci retracements and text labels. Small preferences like selected stock, chart range, theme and custom indicators are saved in browser LocalStorage.
+Drawings are handled separately from the indicators, so you can mark up the chart using lines, rays, rectangles, Fibonacci retracements and text labels. Small preferences like selected stock, theme and custom indicators are saved in browser LocalStorage.
 
 ---
 
