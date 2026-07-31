@@ -1,91 +1,11 @@
-:root {
-  --bg: #0b0e14;
-  --panel: #11151e;
-  --panel-alt: #171c27;
-  --ink: #d8dbe3;
-  --muted: #858b99;
-  --rule: #212734;
-  --rule-strong: #2b3342;
-  --accent: #4c8dff;
-  --accent-hover: #3a7ce8;
-  --up: #28b3a5;
-  --down: #f0504d;
-  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --sans: "Helvetica Neue", Arial, sans-serif;
-}
-:root[data-theme="light"] {
-  --bg: #eef2f7;
-  --panel: #ffffff;
-  --panel-alt: #f7f9fc;
-  --ink: #202532;
-  --muted: #657084;
-  --rule: #e1e6ef;
-  --rule-strong: #cbd2df;
-  --accent: #1769e0;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  margin: 0;
-  min-height: 100%;
-  background: var(--bg);
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: 14px;
-}
-
-body {
-  min-height: 100dvh;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-}
-
-h1,
-h2,
-h3 {
-  margin: 0;
-  font-family: var(--mono);
-  font-weight: 500;
-}
-
-button,
-select,
-input,
-textarea {
-  font: inherit;
-}
-
-.topbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 18px;
-  border-bottom: 1px solid var(--rule);
-  background: var(--panel);
-}
-
 .theme-toggle {
   padding: 7px 10px;
+  white-space: nowrap;
+  border-radius: 7px;
   font-family: var(--mono);
   font-size: 11px;
-  border-radius: 7px;
-}
-.theme-toggle {
-  white-space: nowrap;
 }
 
-.brand,
-.file-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 .brand-mark {
   border: 1px solid var(--accent);
   color: var(--accent);
@@ -124,23 +44,6 @@ button:hover {
   color: var(--accent);
 }
 
-.workspace {
-  display: grid;
-  grid-template-columns: 52px 1fr 280px;
-  min-height: 0;
-  height: 100%;
-}
-
-.drawing-toolbar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  padding: 9px 7px;
-  border-right: 1px solid var(--rule);
-  background: var(--panel);
-}
-
 .draw-tool-btn {
   width: 36px;
   height: 36px;
@@ -152,6 +55,7 @@ button:hover {
   background: transparent;
   color: var(--muted);
   border-radius: 8px;
+  touch-action: manipulation;
   transition:
     color 120ms ease,
     background 120ms ease,
@@ -236,17 +140,7 @@ button:hover {
   color: var(--down);
 }
 
-.chart-column {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  border-right: 1px solid var(--rule);
-  background: var(--panel);
-}
-.chart-box-main {
-  flex: 1 1 auto;
-  min-height: 300px;
-}
+
 
 .pane-label {
   display: flex;
@@ -280,15 +174,6 @@ button:hover {
 }
 .pane-overlay-label .ohlc-readout {
   color: var(--ink);
-}
-
-.sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  overflow-y: auto;
-  padding: 18px;
-  background: var(--panel);
 }
 
 .panel h2 {
@@ -427,29 +312,6 @@ textarea:focus {
   text-align: right;
 }
 
-.statusbar {
-  display: flex;
-  justify-content: space-between;
-  padding: 8px 20px;
-  border-top: 1px solid var(--rule);
-  background: var(--panel);
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 11px;
-}
-
-.draw-tool-btn {
-  touch-action: manipulation;
-}
-
-.top-center {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-width: 0;
-}
-
 .stock-selector-btn {
   min-width: min(240px, 100%);
   max-width: 360px;
@@ -545,45 +407,10 @@ textarea:focus {
   font-family: var(--mono);
 }
 
-@media (max-width: 900px) {
-  .workspace {
-    grid-template-columns: 44px 1fr;
-  }
-  .chart-column {
-    border-right: 0;
-  }
-  .sidebar {
-    grid-column: 1 / -1;
-    border-top: 1px solid var(--rule-strong);
-  }
-}
-
-@media (max-width: 680px) {
-  .topbar {
-    align-items: stretch;
-  }
-  .top-left,
-  .top-center,
-  .top-right {
-    flex: 1 1 100%;
-  }
-  .top-center,
-  .top-right {
-    justify-content: flex-start;
-  }
-  .top-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-  }
-  .stock-selector-btn {
-    width: 100%;
-    max-width: none;
-  }
-  .file-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+.icon-btn {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  padding: 0;
+  font-family: var(--mono);
 }

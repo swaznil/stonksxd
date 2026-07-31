@@ -107,7 +107,10 @@ stonksxd
 ├── assets
 │   ├── screenshotchart.png
 │   └── screenshotindicator.png
-├── custom-indicator.css
+├── css
+│   ├── base.css
+│   ├── components.css
+│   └── custom-indicator.css
 ├── data
 │   ├── sample01.csv
 │   ├── sample02.csv
@@ -116,8 +119,7 @@ stonksxd
 │   └── sample05.csv
 ├── drawing-tools.js
 ├── index.html
-├── indicators.js
-└── style.css
+└── indicators.js
 ```
 
 ---
