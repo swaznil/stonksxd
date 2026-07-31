@@ -103,7 +103,6 @@ Optional column:
 ```text
 stonksxd
 ├── README.md
-├── app.js
 ├── assets
 │   ├── screenshotchart.png
 │   └── screenshotindicator.png
@@ -117,9 +116,13 @@ stonksxd
 │   ├── sample03.csv
 │   ├── sample04.csv
 │   └── sample05.csv
-├── drawing-tools.js
 ├── index.html
-└── indicators.js
+└── js
+    ├── app.js
+    ├── chart.js
+    ├── data.js
+    ├── drawing-tools.js
+    └── indicators.js
 ```
 
 ---

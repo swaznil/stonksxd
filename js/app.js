@@ -4,9 +4,6 @@ import {
   fetchStock,
   normalizeCandles,
   parseCsv,
-} from "./data.js";
-import { PRESET_INDICATORS, normalizeImportedIndicator } from "./indicators.js";
-import {
   downloadJson,
   getLastStock,
   getTheme,
@@ -15,7 +12,8 @@ import {
   saveCustomIndicators,
   setLastStock,
   setTheme,
-} from "./storage.js";
+} from "./data.js";
+import { PRESET_INDICATORS, normalizeImportedIndicator } from "./indicators.js";
 
 const elements = {
   chart: document.getElementById("main-chart"),
