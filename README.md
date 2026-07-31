@@ -1,13 +1,16 @@
 # stonksxd
 
-StonksxD is a browser based candlestick charting and stock data playground made with vanilla HTML, CSS and JavaScript. It lets you load OHLCV CSV data, view candlestick charts, add indicators, create custom formula indicators and draw directly on the chart.
+StonksxD is a technical analysis platform that allows users to to build, visualize, and backtest custom indicators. It is made with vanilla HTML, CSS and JavaScript. It lets you load OHLCV CSV data, view candlestick charts, add indicators, create custom formula indicators and draw directly on the chart.
 
-The project is meant to be lightweight and simple to run. There is no backend, no account system, no build step and no framework setup needed.
+StonksxD is both a learning project and a practical useful tool. As makes it easy to prototype and evaluate custom indicators.
 
 
 ## Motivation
 
-I wanted to make a clean stock chart where I could load my own data, create custom indicators and in the process learn more about financial charts, technical analysis indicators and building interactive browser tools.
+I came across a competition about building stock market indicators, the ability to create custom indicators without complex scripts really fascinated me and I wanted to build one platform some myself. So to learn about how it works and to make my own version of it I started stonksxd. I was really lost in the begining not knowing where to start so I used AI agents to build me a workable demo. After understanding the code structure and grasping a mental map, I started adding special features myself.
+
+After custom indicator section was completed and everything worked fine, it felt empty and of no use like just another trading chart wanabe that looks vibecoded. So I started comming up with more ideas, and the most useful idea hit me which was a backtesting engine. The platform I was competing on for custom indicator had no ability to test it so I added that feature on stonksxd which is really useful for me to test my own strategies. Finally for the real data to test these on I got some scraped data of some random companies listed in NEPSE.
+
 
 ## Live Demo
 
@@ -19,11 +22,12 @@ stonksxd.vercel.app
 
 ## Features
 
-- Load the included sample stocks or import your own CSV file
-- Show candlesticks with OHLC and volume data
-- Add SMA, EMA, Bollinger Bands, RSI, MACD, ATR, VWAP, and Stochastic indicators
-- Save, import, and export custom indicators
-- Add trend lines, rays, horizontal lines, Fibonacci retracements, and other chart annotations
+- Load candlestick chart from CSV file
+- Analyse the chart with built in Indicators
+- Create, import, export custom indicators
+- Backtest indicator based strategies
+- SMA, EMA, Bollinger Bands, RSI, MACD, ATR, VWAP, and Stochastic indicators
+- Plot on chart with trend lines, rays, horizontal lines, Fibonacci retracements, and other annotations
 - Dark and light theme support
 
 ---
@@ -92,7 +96,6 @@ Optional column:
 - HTML
 - CSS
 - JavaScript
-- LocalStorage
 - Lightweight Charts
 - Papa Parse
 
@@ -107,6 +110,7 @@ stonksxd
 │   ├── screenshotchart.png
 │   └── screenshotindicator.png
 ├── css
+│   ├── backtest.css
 │   ├── base.css
 │   ├── components.css
 │   └── custom-indicator.css
@@ -119,6 +123,7 @@ stonksxd
 ├── index.html
 └── js
     ├── app.js
+    ├── backtest.js
     ├── chart.js
     ├── data.js
     ├── drawing-tools.js
@@ -129,23 +134,15 @@ stonksxd
 
 ## How It Works
 
-The app loads data from CSV files using Papa Parse. The data is converted into daily candlestick format and then rendered on the chart using Lightweight Charts.
+The app loads data from CSV files using Papa Parse. The data is converted into daily candlestick format then rendered on the chart using Lightweight Charts.
 
-Each candle contains open, high, low and close (OHLC) values. Built in indicators are calculated in JavaScript. Some indicators are drawn directly over the price chart, while others are displayed in their own pane. Custom indicators can be build using fields like `open`, `high`, `low`, `close` and `volume`, along with functions like `SMA`, `EMA`, `RSI`, `ATR`, `MAX`, `MIN`, `STDEV` and `ABS`.
-
-Drawings are handled separately from the indicators, so you can mark up the chart using lines, rays, rectangles, Fibonacci retracements and text labels. Small preferences like selected stock, theme and custom indicators are saved in browser LocalStorage.
+Each candle contains open, high, low and close (OHLC) values. Built in indicators are calculated in JavaScript. Some indicators are drawn directly over the price chart, while others are displayed in their own pane. Custom indicators can be build using fields like `open`, `high`, `low`, `close` and `volume`, along with functions like `SMA`, `EMA`, `RSI`, `ATR`, `MAX`, `MIN`, `STDEV` and `ABS`. Drawings are handled separately from the indicators. Small preferences like selected stock, theme and custom indicators are saved in browser LocalStorage.
 
 ---
 
 ## AI Usage
 
-ChatGPT and Codex were used for:
-
-- Debugging JavaScript code
-- Discussing chart logic and indicator calculations
-- Improving code structure
-- Cleaning up UI and styles
-
+ChatGPT and Codex were used for debugging code, helping build chart logic and indicator calculations improving code structure.
 All project decisions, design choices, implementation and final testing were done by me.
 
 ---

@@ -1,0 +1,119 @@
+.backtest-modal {
+  width: min(760px, calc(100vw - 32px));
+}
+
+.backtest-form {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.backtest-periods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.backtest-rules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.backtest-rule {
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--rule-strong);
+  background: var(--panel-alt);
+}
+.backtest-rule legend {
+  padding: 0 6px;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.rule-parameters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.rule-parameters .form-row:nth-child(4) {
+  grid-column: 1 / -1;
+}
+
+.backtest-results {
+  padding: 18px;
+}
+
+.backtest-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.backtest-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--rule);
+  background: var(--panel-alt);
+}
+.backtest-metrics span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.backtest-metrics strong {
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 14px;
+  text-overflow: ellipsis;
+}
+
+.positive { color: var(--up); }
+.negative { color: var(--down); }
+
+.backtest-table-wrap {
+  max-height: 250px;
+  margin-top: 14px;
+  overflow: auto;
+  border: 1px solid var(--rule);
+}
+.backtest-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.backtest-table th,
+.backtest-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--rule);
+  text-align: right;
+  white-space: nowrap;
+}
+.backtest-table th:first-child,
+.backtest-table td:first-child,
+.backtest-table th:nth-child(2),
+.backtest-table td:nth-child(2) {
+  text-align: left;
+}
+
+.backtest-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-alt);
+  color: var(--muted);
+}
+
+.backtest-empty { margin: 14px 0 0; }
+
+@media (max-width: 680px) {
+  .backtest-periods { grid-template-columns: 1fr; }
+  .backtest-rules { grid-template-columns: 1fr; }
+  .backtest-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
