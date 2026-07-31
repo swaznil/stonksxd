@@ -63,7 +63,7 @@ stonksxd.vercel.app
 
 ![StonksxD Chart Example](assets/screenshotchart.png)
 
-![StonksxD Backtest](assests/screenshotbacktest.png)
+![StonksxD Backtest](assets/screenshotbacktest.png)
 
 ![StonksxD Custom Indicator Builder](assets/screenshotindicator.png)
 
