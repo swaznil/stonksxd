@@ -6,8 +6,8 @@
   --muted: #858b99;
   --rule: #212734;
   --rule-strong: #2b3342;
-  --accent: #4c8dff;
-  --accent-hover: #3a7ce8;
+  --accent: #3cd0a4c4;
+  --accent-hover: #3ba988c4;
   --up: #28b3a5;
   --down: #f0504d;
   --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -21,7 +21,7 @@
   --muted: #657084;
   --rule: #e1e6ef;
   --rule-strong: #cbd2df;
-  --accent: #1769e0;
+  --accent: #25896b;
 }
 
 * {
@@ -70,18 +70,18 @@ body {
   background: var(--panel);
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 .top-center {
   flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
   min-width: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .workspace {
@@ -145,7 +145,6 @@ body {
     border-top: 1px solid var(--rule-strong);
   }
 }
-
 @media (max-width: 680px) {
   .topbar {
     align-items: stretch;

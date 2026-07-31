@@ -80,6 +80,11 @@
   border-top: 1px solid var(--rule);
   padding-top: 14px;
 }
+.variable-entry {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 72px;
+  gap: 8px;
+}
 
 .section-head {
   display: flex;
@@ -94,12 +99,6 @@
   color: var(--muted);
   font-family: var(--mono);
   font-size: 11px;
-}
-
-.variable-entry {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 72px;
-  gap: 8px;
 }
 
 .compact-btn {

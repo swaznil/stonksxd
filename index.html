@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/components.css" />
   <link rel="stylesheet" href="css/custom-indicator.css" />
+  <link rel="stylesheet" href="css/backtest.css" />
 
 </head>
 
@@ -51,6 +52,12 @@
   </section>
 
   <aside class="sidebar">
+    
+    <div class="panel">
+      <h2> Backtesting </h2>
+      <button id="backtest-btn" class="primary-btn" type="button">Backtest Strategy</button>
+    </div>
+
     <div class="panel">
       <h2>Add Indicator</h2>
       <form id="indicator-form">
@@ -92,23 +99,24 @@
       </table>
     </div>
 
-<div class="panel">
-  <h2>Custom Indicators</h2>
-  <button id="new-custom-btn" class="primary-btn" type="button">Create New Indicator</button>
+    <div class="panel">
+      <h2>Custom Indicators</h2>
+      <button id="new-custom-btn" class="primary-btn" type="button">Create New Indicator</button>
 
-  <div class="side-grid" style="margin-top: 10px;">
-    <button id="export-custom-btn" class="secondary-btn compact-btn" type="button">Export</button>
-    <label id="import-custom-label" class="secondary-btn compact-btn import-label" for="import-custom-input">
-      Import
-    </label>
-    <input id="import-custom-input" type="file" accept="application/json" hidden />
-  </div>
+      <div class="side-grid" style="margin-top: 10px;">
+        <button id="export-custom-btn" class="secondary-btn compact-btn" type="button">Export</button>
+        <label id="import-custom-label" class="secondary-btn compact-btn import-label" for="import-custom-input">
+          Import
+        </label>
+        <input id="import-custom-input" type="file" accept="application/json" hidden />
+      </div>
 
-  <h3 class="panel-subheading">Saved Indicators</h3>
-  <ul id="saved-custom-list" class="indicator-list">
-    <li class="empty-note">No saved indicators.</li>
-  </ul>
-</div>
+      <h3 class="panel-subheading">Saved Indicators</h3>
+      <ul id="saved-custom-list" class="indicator-list">
+        <li class="empty-note">No saved indicators.</li>
+      </ul>
+    </div>
+
   </aside>
 </main>
 
@@ -309,6 +317,60 @@ B = EMA(close,50)
 Final Formula = A-B</pre>
       </section>
     </div>
+  </div>
+</div>
+
+<div id="backtest-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="backtest-modal-title" hidden>
+  <div class="modal backtest-modal" tabindex="-1">
+    <div class="modal-head">
+      <div>
+        <h2 id="backtest-modal-title">Strategy Backtest</h2>
+        <p>Build buy and sell rules from indicator options, then test them on a sample and date range.</p>
+      </div>
+      <button id="backtest-close" class="icon-btn" type="button" aria-label="Close">x</button>
+    </div>
+
+    <form id="backtest-form" class="backtest-form">
+      <div class="form-row">
+        <label for="backtest-sample">Sample</label>
+        <select id="backtest-sample"></select>
+      </div>
+      <div class="backtest-periods">
+        <div class="form-row">
+          <label for="backtest-start">From</label>
+          <input id="backtest-start" type="date" required />
+        </div>
+        <div class="form-row">
+          <label for="backtest-end">To</label>
+          <input id="backtest-end" type="date" required />
+        </div>
+      </div>
+      <div class="backtest-rules">
+        <fieldset class="backtest-rule">
+          <legend>When to buy</legend>
+          <div id="backtest-buy-rule"></div>
+        </fieldset>
+        <fieldset class="backtest-rule">
+          <legend>When to sell</legend>
+          <div id="backtest-sell-rule"></div>
+        </fieldset>
+      </div>
+      <div class="backtest-periods">
+        <div class="form-row">
+          <label for="backtest-capital">Starting cash</label>
+          <input id="backtest-capital" type="number" min="100" step="100" value="10000" required />
+        </div>
+        <div class="form-row">
+          <label for="backtest-size">Position size (%)</label>
+          <input id="backtest-size" type="number" min="1" max="100" step="1" value="100" required />
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="primary-btn" type="submit">Run Backtest</button>
+      </div>
+    </form>
+
+    <section id="backtest-results" class="backtest-results" aria-live="polite" hidden></section>
   </div>
 </div>
 

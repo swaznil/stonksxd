@@ -14,6 +14,7 @@ import {
   setTheme,
 } from "./data.js";
 import { PRESET_INDICATORS, normalizeImportedIndicator } from "./indicators.js";
+import { setupBacktest } from "./backtest.js";
 
 const elements = {
   chart: document.getElementById("main-chart"),
@@ -575,6 +576,21 @@ export function initApp() {
   setupCustomIndicatorControls();
   setupFormulaHelp();
   setupFileInput();
+
+  setupBacktest({
+    getCandles: () => chartController.candles,
+    getCurrentSample: () => elements.stockLabel.textContent,
+    sampleNames: SAMPLE_STOCKS.map((stock) => stock.name),
+    loadSample: async (name) => {
+      const stock = SAMPLE_STOCKS.find((item) => item.name === name);
+      if (!stock) throw new Error(`Unknown sample: ${name}`);
+      return normalizeCandles(await fetchStock(stock));
+    },
+    openModal,
+    closeModal,
+    setStatus,
+  });
+
   renderCustomOptions();
   elements.themeToggle.addEventListener("click", () =>
     applyTheme(currentTheme === "light" ? "dark" : "light"),
