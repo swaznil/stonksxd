@@ -1,4 +1,4 @@
-const PRESET_INDICATORS = [
+export const PRESET_INDICATORS = [
   {
     name: "SMA (20)",
     formula: "SMA(close,20)",
@@ -103,57 +103,6 @@ const PRESET_INDICATORS = [
   },
 ];
 
-function renderPresetOptions() {
-  const select = document.getElementById("preset-select");
-  if (!select) return;
-
-  select.innerHTML = '<option value="">Start from scratch...</option>';
-  PRESET_INDICATORS.forEach((preset, i) => {
-    const option = document.createElement("option");
-    option.value = String(i);
-    option.textContent = preset.name;
-    select.appendChild(option);
-  });
-}
-
-function applyPreset(index) {
-  const preset = PRESET_INDICATORS[index];
-  if (!preset) return;
-
-  document.getElementById("custom-name").value = preset.name;
-  document.getElementById("custom-formula").value = preset.formula;
-  document.getElementById("custom-panel").value = preset.panel;
-  document.getElementById("custom-draw").value = preset.draw;
-  document.getElementById("custom-color").value = preset.color;
-  document.getElementById("custom-width").value = preset.width;
-
-  customVariables = preset.variables.map((v) => ({ ...v }));
-  renderVariableList();
-}
-
-function downloadJSON(filename, data) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function exportCustomIndicators() {
-  if (customIndicators.length === 0) {
-    setStatus("No saved custom indicators to export.");
-    return;
-  }
-  downloadJSON("stonksxd-custom-indicators.json", customIndicators);
-  setStatus(`Exported ${customIndicators.length} custom indicator(s).`);
-}
-
 function isValidIndicatorDef(def) {
   return (
     def &&
@@ -170,7 +119,6 @@ function isValidIndicatorDef(def) {
 }
 
 function validationCandles() {
-  if (Array.isArray(candles) && candles.length > 40) return candles;
   return Array.from({ length: 60 }, (_, i) => {
     const close = 100 + Math.sin(i / 4) * 3 + i * 0.1;
     return {
@@ -184,7 +132,7 @@ function validationCandles() {
   });
 }
 
-function normalizeImportedIndicator(def) {
+export function normalizeImportedIndicator(def) {
   if (!isValidIndicatorDef(def)) return null;
 
   const seenVars = new Set();
@@ -219,47 +167,7 @@ function normalizeImportedIndicator(def) {
   return normalized;
 }
 
-function importCustomIndicatorsFromFile(file) {
-  if (file.size > 1024 * 1024) {
-    setStatus("Import error: file is too large.");
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const parsed = JSON.parse(reader.result);
-      const list = Array.isArray(parsed) ? parsed : [parsed];
-      const valid = list.map(normalizeImportedIndicator).filter(Boolean);
-
-      if (valid.length === 0) {
-        setStatus("No valid indicators found in that file.");
-        return;
-      }
-
-      const merged = [...valid, ...customIndicators];
-      const seen = new Set();
-      customIndicators = merged
-        .filter((def) => {
-          const key = def.name + "::" + def.formula;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        })
-        .slice(0, 50);
-
-      localStorage.setItem(CUSTOM_KEY, JSON.stringify(customIndicators));
-      renderCustomOptions();
-      setStatus(`Imported ${valid.length} indicator(s).`);
-    } catch (err) {
-      setStatus("Import error: " + err.message);
-    }
-  };
-  reader.onerror = () => setStatus("Import error: could not read the file.");
-  reader.readAsText(file);
-}
-
-function calcSMA(candles, period) {
+export function calcSMA(candles, period) {
   const out = [];
   for (let i = 0; i < candles.length; i++) {
     if (i < period - 1) continue;
@@ -271,7 +179,7 @@ function calcSMA(candles, period) {
   return out;
 }
 
-function calcEMA(candles, period) {
+export function calcEMA(candles, period) {
   const out = [];
   const k = 2 / (period + 1);
   let prevEma = null;
@@ -291,7 +199,7 @@ function calcEMA(candles, period) {
   return out;
 }
 
-function calcBollinger(candles, period, mult) {
+export function calcBollinger(candles, period, mult) {
   const upper = [];
   const middle = [];
   const lower = [];
@@ -312,7 +220,7 @@ function calcBollinger(candles, period, mult) {
   return { upper, middle, lower };
 }
 
-function calcRSI(candles, period) {
+export function calcRSI(candles, period) {
   const out = [];
   if (candles.length <= period) return out;
   let gainSum = 0;
@@ -371,7 +279,7 @@ function emaSeriesFromValues(values, period) {
   return out;
 }
 
-function calcMACD(candles, fastPeriod, slowPeriod, signalPeriod) {
+export function calcMACD(candles, fastPeriod, slowPeriod, signalPeriod) {
   const closesSeries = candles.map((c) => ({ time: c.time, value: c.close }));
   const fastEma = emaValuesFull(closesSeries, fastPeriod);
   const slowEma = emaValuesFull(closesSeries, slowPeriod);
@@ -415,7 +323,7 @@ function emaValuesFull(series, period) {
   return out;
 }
 
-function calcATR(candles, period) {
+export function calcATR(candles, period) {
   const trueRanges = [];
   for (let i = 0; i < candles.length; i++) {
     const prevClose = i > 0 ? candles[i - 1].close : candles[i].close;
@@ -431,7 +339,7 @@ function calcATR(candles, period) {
   return rmaSeriesFromValues(trueRanges, period);
 }
 
-function calcVWAP(candles) {
+export function calcVWAP(candles) {
   const out = [];
   let pvSum = 0;
   let volumeSum = 0;
@@ -444,7 +352,7 @@ function calcVWAP(candles) {
   return out;
 }
 
-function calcStochastic(candles, period) {
+export function calcStochastic(candles, period) {
   const kLine = [];
   for (let i = period - 1; i < candles.length; i++) {
     let highest = -Infinity;
@@ -463,7 +371,7 @@ function calcStochastic(candles, period) {
   return { kLine, dLine };
 }
 
-function evaluateFormula(formula, candles, variableDefs = []) {
+export function evaluateFormula(formula, candles, variableDefs = []) {
   const tokens = tokenizeFormula(formula);
   let pos = 0;
   const variableMap = buildVariableMap(variableDefs);
@@ -731,7 +639,7 @@ function candleField(name, candles) {
   return { kind: "series", values: candles.map((c) => c[key]) };
 }
 
-function callFormulaFunction(name, args, length) {
+function callFormulaFunction(name, args, length, candles) {
   const fn = name.toUpperCase();
   if (fn === "SMA")
     return rollingAverage(asSeries(args[0], length), asPeriod(args[1]));

@@ -325,12 +325,11 @@ window.handleLibraryError = function (name) {
   else alert(msg);
 };
 </script>
-<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js" onerror="handleLibraryError('Papa Parse')"></script>
-<script src="https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js" onerror="handleLibraryError('Lightweight Charts')"></script>
 
-<script src="indicators.js"></script>
-<script src="drawing-tools.js"></script>
-<script src="app.js"></script>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://unpkg.com/lightweight-charts@5.0.8/dist/lightweight-charts.standalone.production.js"></script>
+
+<script type="module" src="js/app.js"></script>
 
 </body>
 </html>

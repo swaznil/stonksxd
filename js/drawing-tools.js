@@ -631,7 +631,7 @@ const TOOLS = [
   { id: "remove", label: "Remove All Drawings", points: 0, icon: "trash" },
 ];
 
-class DrawingToolManager {
+export class DrawingToolManager {
   constructor(chart, series, container) {
     this.chart = chart;
     this.series = series;
@@ -1050,7 +1050,7 @@ const TOOL_ICONS = {
   trash: `<path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13" fill="none" stroke="currentColor" stroke-width="1.6"/>`,
 };
 
-function buildDrawingToolbar(mountEl, manager) {
+export function buildDrawingToolbar(mountEl, manager) {
   mountEl.innerHTML = "";
   mountEl.className = "drawing-toolbar";
 
