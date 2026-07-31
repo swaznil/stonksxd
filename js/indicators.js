@@ -168,88 +168,49 @@ export function normalizeImportedIndicator(def) {
 }
 
 export function calcSMA(candles, period) {
-  const out = [];
-  for (let i = 0; i < candles.length; i++) {
-    if (i < period - 1) continue;
-    let sum = 0;
-    for (let j = i - period + 1; j <= i; j++) sum += candles[j].close;
-    out.push({ time: candles[i].time, value: sum / period });
-  }
-
-  return out;
+  return seriesToChartData(
+    calculateSmaValues(candles.map((candle) => candle.close), period),
+    candles,
+  );
 }
 
 export function calcEMA(candles, period) {
-  const out = [];
-  const k = 2 / (period + 1);
-  let prevEma = null;
-  for (let i = 0; i < candles.length; i++) {
-    const price = candles[i].close;
-    if (i === period - 1) {
-      let sum = 0;
-      for (let j = 0; j <= i; j++) sum += candles[j].close;
-      prevEma = sum / period;
-      out.push({ time: candles[i].time, value: prevEma });
-    } else if (i >= period) {
-      prevEma = price * k + prevEma * (1 - k);
-      out.push({ time: candles[i].time, value: prevEma });
-    }
-  }
-
-  return out;
+  return calcEmaPoints(
+    candles.map((candle) => ({ time: candle.time, value: candle.close })),
+    period,
+  );
 }
 
 export function calcBollinger(candles, period, mult) {
-  const upper = [];
-  const middle = [];
-  const lower = [];
-  for (let i = 0; i < candles.length; i++) {
-    if (i < period - 1) continue;
-    let sum = 0;
-    for (let j = i - period + 1; j <= i; j++) sum += candles[j].close;
-    const mean = sum / period;
-    let variance = 0;
-    for (let j = i - period + 1; j <= i; j++)
-      variance += Math.pow(candles[j].close - mean, 2);
-    const sd = Math.sqrt(variance / period);
-    middle.push({ time: candles[i].time, value: mean });
-    upper.push({ time: candles[i].time, value: mean + mult * sd });
-    lower.push({ time: candles[i].time, value: mean - mult * sd });
-  }
-
-  return { upper, middle, lower };
+  const closes = candles.map((candle) => candle.close);
+  const averages = calculateSmaValues(closes, period);
+  const deviations = calculateStdDevValues(closes, period);
+  return {
+    upper: seriesToChartData(
+      averages.map((value, i) =>
+        isValidNumber(value) && isValidNumber(deviations[i])
+          ? value + mult * deviations[i]
+          : null,
+      ),
+      candles,
+    ),
+    middle: seriesToChartData(averages, candles),
+    lower: seriesToChartData(
+      averages.map((value, i) =>
+        isValidNumber(value) && isValidNumber(deviations[i])
+          ? value - mult * deviations[i]
+          : null,
+      ),
+      candles,
+    ),
+  };
 }
 
 export function calcRSI(candles, period) {
-  const out = [];
-  if (candles.length <= period) return out;
-  let gainSum = 0;
-  let lossSum = 0;
-  for (let i = 1; i <= period; i++) {
-    const diff = candles[i].close - candles[i - 1].close;
-    if (diff >= 0) gainSum += diff;
-    else lossSum -= diff;
-  }
-  let avgGain = gainSum / period;
-  let avgLoss = lossSum / period;
-  out.push({
-    time: candles[period].time,
-    value: rsiFromAverages(avgGain, avgLoss),
-  });
-
-  for (let i = period + 1; i < candles.length; i++) {
-    const diff = candles[i].close - candles[i - 1].close;
-    const gain = diff > 0 ? diff : 0;
-    const loss = diff < 0 ? -diff : 0;
-    avgGain = (avgGain * (period - 1) + gain) / period;
-    avgLoss = (avgLoss * (period - 1) + loss) / period;
-    out.push({
-      time: candles[i].time,
-      value: rsiFromAverages(avgGain, avgLoss),
-    });
-  }
-
-  return out;
+  return seriesToChartData(
+    calculateRsiValues(candles.map((candle) => candle.close), period),
+    candles,
+  );
 }
 
 function rsiFromAverages(avgGain, avgLoss) {
@@ -260,29 +221,17 @@ function rsiFromAverages(avgGain, avgLoss) {
   return 100 - 100 / (1 + rs);
 }
 
-function emaSeriesFromValues(values, period) {
-  const out = [];
-  const k = 2 / (period + 1);
-  let prevEma = null;
-  for (let i = 0; i < values.length; i++) {
-    if (i === period - 1) {
-      let sum = 0;
-      for (let j = 0; j <= i; j++) sum += values[j].value;
-      prevEma = sum / period;
-      out.push({ time: values[i].time, value: prevEma });
-    } else if (i >= period) {
-      prevEma = values[i].value * k + prevEma * (1 - k);
-      out.push({ time: values[i].time, value: prevEma });
-    }
-  }
-
-  return out;
+function calcEmaPoints(points, period) {
+  return seriesToChartData(
+    calculateEmaValues(points.map((point) => point.value), period),
+    points,
+  );
 }
 
 export function calcMACD(candles, fastPeriod, slowPeriod, signalPeriod) {
   const closesSeries = candles.map((c) => ({ time: c.time, value: c.close }));
-  const fastEma = emaValuesFull(closesSeries, fastPeriod);
-  const slowEma = emaValuesFull(closesSeries, slowPeriod);
+  const fastEma = calcEmaPoints(closesSeries, fastPeriod);
+  const slowEma = calcEmaPoints(closesSeries, slowPeriod);
 
   const macdLine = [];
   const slowMap = new Map(slowEma.map((p) => [p.time, p.value]));
@@ -292,7 +241,7 @@ export function calcMACD(candles, fastPeriod, slowPeriod, signalPeriod) {
     }
   }
 
-  const signalLine = emaSeriesFromValues(macdLine, signalPeriod);
+  const signalLine = calcEmaPoints(macdLine, signalPeriod);
   const signalMap = new Map(signalLine.map((p) => [p.time, p.value]));
   const histogram = [];
   for (const p of macdLine) {
@@ -302,25 +251,6 @@ export function calcMACD(candles, fastPeriod, slowPeriod, signalPeriod) {
   }
 
   return { macdLine, signalLine, histogram };
-}
-
-function emaValuesFull(series, period) {
-  const out = [];
-  const k = 2 / (period + 1);
-  let prevEma = null;
-  for (let i = 0; i < series.length; i++) {
-    if (i === period - 1) {
-      let sum = 0;
-      for (let j = 0; j <= i; j++) sum += series[j].value;
-      prevEma = sum / period;
-      out.push({ time: series[i].time, value: prevEma });
-    } else if (i >= period) {
-      prevEma = series[i].value * k + prevEma * (1 - k);
-      out.push({ time: series[i].time, value: prevEma });
-    }
-  }
-
-  return out;
 }
 
 export function calcATR(candles, period) {
@@ -367,7 +297,7 @@ export function calcStochastic(candles, period) {
       value: range === 0 ? 50 : ((candles[i].close - lowest) / range) * 100,
     });
   }
-  const dLine = emaSeriesFromValues(kLine, 3);
+  const dLine = calcEmaPoints(kLine, 3);
   return { kLine, dLine };
 }
 
@@ -716,69 +646,18 @@ function applyOperator(a, b, op) {
 }
 
 function rollingAverage(series, period) {
-  const values = Array(series.values.length).fill(null);
-  for (let i = period - 1; i < series.values.length; i++) {
-    let sum = 0;
-    let count = 0;
-    for (let j = i - period + 1; j <= i; j++) {
-      if (isValidNumber(series.values[j])) {
-        sum += series.values[j];
-        count++;
-      }
-    }
-    if (count === period) values[i] = sum / period;
-  }
-  return { kind: "series", values };
+  return { kind: "series", values: calculateSmaValues(series.values, period) };
 }
 
 function rollingEma(series, period) {
-  const values = Array(series.values.length).fill(null);
-  const k = 2 / (period + 1);
-  let prev = null;
-  for (let i = 0; i < series.values.length; i++) {
-    const value = series.values[i];
-    if (!isValidNumber(value)) continue;
-    if (prev == null) {
-      let sum = 0;
-      let count = 0;
-      for (let j = Math.max(0, i - period + 1); j <= i; j++) {
-        if (isValidNumber(series.values[j])) {
-          sum += series.values[j];
-          count++;
-        }
-      }
-      if (count === period) {
-        prev = sum / period;
-        values[i] = prev;
-      }
-    } else {
-      prev = value * k + prev * (1 - k);
-      values[i] = prev;
-    }
-  }
-  return { kind: "series", values };
+  return { kind: "series", values: calculateEmaValues(series.values, period) };
 }
 
 function rollingStdDev(series, period) {
-  const values = Array(series.values.length).fill(null);
-  for (let i = period - 1; i < series.values.length; i++) {
-    let sum = 0;
-    let count = 0;
-    for (let j = i - period + 1; j <= i; j++) {
-      if (isValidNumber(series.values[j])) {
-        sum += series.values[j];
-        count++;
-      }
-    }
-    if (count !== period) continue;
-    const mean = sum / period;
-    let variance = 0;
-    for (let j = i - period + 1; j <= i; j++) {
-      variance += Math.pow(series.values[j] - mean, 2);
-    }
-    values[i] = Math.sqrt(variance / period);
-  }
-  return { kind: "series", values };
+  return {
+    kind: "series",
+    values: calculateStdDevValues(series.values, period),
+  };
 }
 
 function rollingExtreme(series, period, reducer) {
@@ -835,15 +714,74 @@ function rollingAtr(candles, period, length) {
 }
 
 function rollingRsi(series, period) {
-  const values = Array(series.values.length).fill(null);
+  return { kind: "series", values: calculateRsiValues(series.values, period) };
+}
+
+function calculateSmaValues(input, period) {
+  const values = Array(input.length).fill(null);
+  for (let i = period - 1; i < input.length; i++) {
+    let sum = 0;
+    let count = 0;
+    for (let j = i - period + 1; j <= i; j++) {
+      if (isValidNumber(input[j])) {
+        sum += input[j];
+        count++;
+      }
+    }
+    if (count === period) values[i] = sum / period;
+  }
+  return values;
+}
+
+function calculateEmaValues(input, period) {
+  const values = Array(input.length).fill(null);
+  const k = 2 / (period + 1);
+  let previous = null;
+  for (let i = 0; i < input.length; i++) {
+    const value = input[i];
+    if (!isValidNumber(value)) continue;
+    if (previous == null) {
+      let sum = 0;
+      let count = 0;
+      for (let j = Math.max(0, i - period + 1); j <= i; j++) {
+        if (isValidNumber(input[j])) {
+          sum += input[j];
+          count++;
+        }
+      }
+      if (count === period) {
+        previous = sum / period;
+        values[i] = previous;
+      }
+    } else {
+      previous = value * k + previous * (1 - k);
+      values[i] = previous;
+    }
+  }
+  return values;
+}
+
+function calculateStdDevValues(input, period) {
+  const values = Array(input.length).fill(null);
+  const averages = calculateSmaValues(input, period);
+  for (let i = period - 1; i < input.length; i++) {
+    if (!isValidNumber(averages[i])) continue;
+    let variance = 0;
+    for (let j = i - period + 1; j <= i; j++) {
+      variance += Math.pow(input[j] - averages[i], 2);
+    }
+    values[i] = Math.sqrt(variance / period);
+  }
+  return values;
+}
+
+function calculateRsiValues(input, period) {
+  const values = Array(input.length).fill(null);
   let avgGain = null;
   let avgLoss = null;
   let start = 0;
-  for (let i = 1; i < series.values.length; i++) {
-    if (
-      !isValidNumber(series.values[i]) ||
-      !isValidNumber(series.values[i - 1])
-    ) {
+  for (let i = 1; i < input.length; i++) {
+    if (!isValidNumber(input[i]) || !isValidNumber(input[i - 1])) {
       avgGain = null;
       avgLoss = null;
       start = i;
@@ -854,20 +792,20 @@ function rollingRsi(series, period) {
       let gainSum = 0;
       let lossSum = 0;
       for (let j = i - period + 1; j <= i; j++) {
-        const diff = series.values[j] - series.values[j - 1];
+        const diff = input[j] - input[j - 1];
         if (diff >= 0) gainSum += diff;
         else lossSum -= diff;
       }
       avgGain = gainSum / period;
       avgLoss = lossSum / period;
     } else {
-      const diff = series.values[i] - series.values[i - 1];
+      const diff = input[i] - input[i - 1];
       avgGain = (avgGain * (period - 1) + Math.max(diff, 0)) / period;
       avgLoss = (avgLoss * (period - 1) + Math.max(-diff, 0)) / period;
     }
     values[i] = rsiFromAverages(avgGain, avgLoss);
   }
-  return { kind: "series", values };
+  return values;
 }
 
 function seriesToChartData(values, candles) {
