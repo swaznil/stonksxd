@@ -2,14 +2,15 @@
 
 StonksxD is a technical analysis platform that allows users to to build, visualize, and backtest custom indicators. It is made with vanilla HTML, CSS and JavaScript. It lets you load OHLCV CSV data, view candlestick charts, add indicators, create custom formula indicators and draw directly on the chart.
 
-StonksxD is both a learning project and a practical useful tool. As makes it easy to prototype and evaluate custom indicators.
+StonksxD is both a learning project and a practical useful tool. I have been using this to create my own
+custom indicator in intuitive and simple way which required a paid plan on other platforms.
 
 
 ## Motivation
 
-I came across a competition about building stock market indicators, the ability to create custom indicators without complex scripts really fascinated me and I wanted to build one platform some myself. So to learn about how it works and to make my own version of it I started stonksxd. I was really lost in the begining not knowing where to start so I used AI agents to build me a workable demo. After understanding the code structure and grasping a mental map, I started adding special features myself.
+I found a competition about building stock market indicators, and my interest was sparked because of the ability of custom indicators without complex pine scripts and so decided to design one for myself. In order to understand the mechanics and design one for myself, I started making stonksxd. I didn't know how to start when I first started working on this project so I made an AI agent build a demo version of the system for me, once I understood the flow and developed a mental map, I started working on the project, making it better by myself.
 
-After custom indicator section was completed and everything worked fine, it felt empty and of no use like just another trading chart wanabe that looks vibecoded. So I started comming up with more ideas, and the most useful idea hit me which was a backtesting engine. The platform I was competing on for custom indicator had no ability to test it so I added that feature on stonksxd which is really useful for me to test my own strategies. Finally for the real data to test these on I got some scraped data of some random companies listed in NEPSE.
+Once I finished the custom indicator part of it and got everything running properly, it started to feel pointless and boring as just another wannabe trading chart. So I started thinking and came up with an idea which was to add a backtesting engine. The platform that I was supposed to make the custom indicator for does not have such functionality so I made it in order to be able to test my own trading strategy. To have the real data for testing, I scraped some data from some random companies on the NEPSE.
 
 
 ## Live Demo
@@ -25,10 +26,10 @@ stonksxd.vercel.app
 - Load candlestick chart from CSV file
 - Analyse the chart with built in Indicators
 - Create, import, export custom indicators
+- Premade indicators such as: SMA, EMA, Bollinger Bands, RSI, MACD, ATR, VWAP, and more
 - Backtest indicator based strategies
-- SMA, EMA, Bollinger Bands, RSI, MACD, ATR, VWAP, and Stochastic indicators
-- Plot on chart with trend lines, rays, horizontal lines, Fibonacci retracements, and other annotations
-- Dark and light theme support
+- Drawing tools including: trend lines, rays, horizontal lines, Fibonacci retracements, and other annotations
+- Dark and light theme
 
 ---
 
@@ -136,15 +137,15 @@ stonksxd
 
 ## How It Works
 
-The app loads data from CSV files using Papa Parse. The data is converted into daily candlestick format then rendered on the chart using Lightweight Charts.
+Data loading is done via the use of CSV files through Papa Parse. The data is then converted into daily candlestick data and rendered on the chart with the help of Lightweight Charts.
 
-Each candle contains open, high, low and close (OHLC) values. Built in indicators are calculated in JavaScript. Some indicators are drawn directly over the price chart, while others are displayed in their own pane. Custom indicators can be build using fields like `open`, `high`, `low`, `close` and `volume`, along with functions like `SMA`, `EMA`, `RSI`, `ATR`, `MAX`, `MIN`, `STDEV` and `ABS`. Drawings are handled separately from the indicators. Small preferences like selected stock, theme and custom indicators are saved in browser LocalStorage.
+Candle consists of OHLC data (open, high, low, close). Indicators provided by the library are computed with the use of JavaScript. Some of them are drawn directly on top of the price chart, whereas others are shown in a separate pane. Custom indicators can be built through the use of OHLC and volume data, along with such functions as SMA, EMA, RSI, ATR, MAX, MIN, STDEV, and ABS. Drawings are done independently of indicators. Small preferences such as selected stock, theme and custom indicators are stored in LocalStorage of the browser.
 
 ---
 
 ## AI Usage
 
-ChatGPT and Codex were used for debugging code, helping build chart logic and indicator calculations improving code structure.
+ChatGPT and Codex were used for debugging code, helping build chart logic, indicator calculations and improving code structure. I used AI agent to build me a intial working prototype as I was really confused on where and how to start, after that I added more features and made improvements myself.
 All project decisions, design choices, implementation and final testing were done by me.
 
 ---
