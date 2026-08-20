@@ -1,10 +1,23 @@
-import { calcEMA, calcMACD, calcRSI, calcSMA } from "./indicators.js";
+import {
+  calcATR,
+  calcBollinger,
+  calcEMA,
+  calcMACD,
+  calcRSI,
+  calcSMA,
+  calcStochastic,
+  calcVWAP,
+} from "./indicators.js";
 
 const RULE_TYPES = [
   ["rsi", "RSI value"],
   ["sma", "Price / SMA cross"],
   ["ema", "Price / EMA cross"],
   ["macd", "MACD / signal cross"],
+  ["bbands", "Price / Bollinger Band cross"],
+  ["atr", "ATR value"],
+  ["vwap", "Price / VWAP cross"],
+  ["stoch", "Stochastic K / D cross"],
 ];
 
 function positiveInteger(value, label) {
@@ -24,6 +37,8 @@ function alignSeries(candles, points) {
 function buildRuleSignal(candles, rule) {
   const closes = candles.map((candle) => candle.close);
   const direction = rule.direction === "below" ? "below" : "above";
+
+  // RSI
   if (rule.type === "rsi") {
     const period = positiveInteger(rule.period, "RSI period");
     const threshold = Number(rule.threshold);
@@ -38,6 +53,7 @@ function buildRuleSignal(candles, rule) {
     );
   }
 
+  // SMA
   if (rule.type === "sma" || rule.type === "ema") {
     const period = positiveInteger(
       rule.period,
@@ -54,6 +70,7 @@ function buildRuleSignal(candles, rule) {
     });
   }
 
+  // MACD
   if (rule.type === "macd") {
     const fast = positiveInteger(rule.fast, "MACD fast period");
     const slow = positiveInteger(rule.slow, "MACD slow period");
@@ -77,6 +94,93 @@ function buildRuleSignal(candles, rule) {
         : macd[i - 1] >= signal[i - 1] && value < signal[i];
     });
   }
+
+  // Bollinger Bands
+  if (rule.type === "bbands") {
+    const period = positiveInteger(rule.period, "Bollinger period");
+    const mult = Number(rule.mult);
+
+    if (!Number.isFinite(mult) || mult <= 0) {
+      throw new Error("Bollinger multiplier must be greater than zero.");
+    }
+
+    const band = ["upper", "middle", "lower"].includes(rule.band)
+      ? rule.band
+      : "middle";
+
+    const calculated = calcBollinger(candles, period, mult);
+    const values = alignSeries(candles, calculated[band]);
+
+    return closes.map((price, i) => {
+      if (i === 0 || values[i] == null || values[i - 1] == null) {
+        return false;
+      }
+
+      return direction === "above"
+        ? closes[i - 1] <= values[i - 1] && price > values[i]
+        : closes[i - 1] >= values[i - 1] && price < values[i];
+    });
+  }
+
+  // ATR
+  if (rule.type === "atr") {
+    const period = positiveInteger(rule.period, "ATR period");
+    const threshold = Number(rule.threshold);
+
+    if (!Number.isFinite(threshold) || threshold < 0) {
+      throw new Error("ATR level must be zero or greater.");
+    }
+
+    const values = alignSeries(candles, calcATR(candles, period));
+
+    return values.map(
+      (value) =>
+        value != null &&
+        (direction === "above" ? value > threshold : value < threshold),
+    );
+  }
+
+  // VWAP
+  if (rule.type === "vwap") {
+    const values = alignSeries(candles, calcVWAP(candles));
+
+    return closes.map((price, i) => {
+      if (i === 0 || values[i] == null || values[i - 1] == null) {
+        return false;
+      }
+
+      return direction === "above"
+        ? closes[i - 1] <= values[i - 1] && price > values[i]
+        : closes[i - 1] >= values[i - 1] && price < values[i];
+    });
+  }
+
+  // Stochastic RSI
+  if (rule.type === "stoch") {
+    const period = positiveInteger(rule.period, "Stochastic period");
+
+    const calculated = calcStochastic(candles, period);
+
+    const k = alignSeries(candles, calculated.kLine);
+    const d = alignSeries(candles, calculated.dLine);
+
+    return k.map((value, i) => {
+      if (
+        i === 0 ||
+        value == null ||
+        d[i] == null ||
+        k[i - 1] == null ||
+        d[i - 1] == null
+      ) {
+        return false;
+      }
+
+      return direction === "above"
+        ? k[i - 1] <= d[i - 1] && value > d[i]
+        : k[i - 1] >= d[i - 1] && value < d[i];
+    });
+  }
+
   throw new Error("Choose a valid rule type.");
 }
 
@@ -177,7 +281,7 @@ function renderRuleEditor(container, prefix, defaults) {
     <div class="form-row"><label for="${prefix}-type">Indicator</label><select id="${prefix}-type"></select></div>
     <div id="${prefix}-parameters" class="rule-parameters"></div>`;
   const typeSelect = document.getElementById(`${prefix}-type`);
-  
+
   RULE_TYPES.forEach(([value, label]) =>
     typeSelect.add(new Option(label, value)),
   );
@@ -217,7 +321,7 @@ function renderRuleEditor(container, prefix, defaults) {
             <option value="below">price crosses below</option>
           </select>
         </div>`;
-    } else {
+    } else if (type === "macd") {
       target.innerHTML = `
         <div class="form-row">
           <label for="${prefix}-fast">Fast</label>
@@ -238,6 +342,76 @@ function renderRuleEditor(container, prefix, defaults) {
             <option value="below">crosses below signal</option>
           </select>
         </div>`;
+    } else if (type === "bbands") {
+      target.innerHTML = `
+        <div class="form-row">
+          <label for="${prefix}-period">Period</label>
+          <input id="${prefix}-period" type="number" min="1" step="1" value="20" required>
+        </div>
+
+        <div class="form-row">
+          <label for="${prefix}-mult">Deviation</label>
+          <input id="${prefix}-mult" type="number" min="0.1" step="0.1" value="2" required>
+        </div>
+
+        <div class="form-row">
+          <label for="${prefix}-band">Band</label>
+          <select id="${prefix}-band">
+            <option value="upper">Upper</option>
+            <option value="middle">Middle</option>
+            <option value="lower">Lower</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="${prefix}-direction">Condition</label>
+          <select id="${prefix}-direction">
+            <option value="above">price crosses above</option>
+            <option value="below">price crosses below</option>
+          </select>
+        </div>`;
+    } else if (type === "atr") {
+      target.innerHTML = `
+        <div class="form-row">
+          <label for="${prefix}-period">Period</label>
+          <input id="${prefix}-period" type="number" min="1" step="1" value="14" required>
+        </div>
+
+        <div class="form-row">
+          <label for="${prefix}-direction">Condition</label>
+          <select id="${prefix}-direction">
+            <option value="above">is above</option>
+            <option value="below">is below</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="${prefix}-threshold">ATR Level</label>
+          <input id="${prefix}-threshold" type="number" min="0" step="0.1" value="10" required>
+        </div>`;
+    } else if (type === "vwap") {
+      target.innerHTML = `
+        <div class="form-row">
+          <label for="${prefix}-direction">Condition</label>
+          <select id="${prefix}-direction">
+            <option value="above">price crosses above</option>
+            <option value="below">price crosses below</option>
+          </select>
+        </div>`;
+    } else if (type === "stoch") {
+      target.innerHTML = `
+        <div class="form-row">
+          <label for="${prefix}-period">Period</label>
+          <input id="${prefix}-period" type="number" min="1" step="1" value="14" required>
+        </div>
+
+        <div class="form-row">
+          <label for="${prefix}-direction">Condition</label>
+          <select id="${prefix}-direction">
+            <option value="above">%K crosses above %D</option>
+            <option value="below">%K crosses below %D</option>
+          </select>
+        </div>`;
     }
 
     document.getElementById(`${prefix}-direction`).value = defaults.direction;
@@ -249,18 +423,32 @@ function renderRuleEditor(container, prefix, defaults) {
 
 function readRule(prefix) {
   const type = document.getElementById(`${prefix}-type`).value;
+
   const rule = {
-    type, direction: document.getElementById(`${prefix}-direction`).value,
+    type,
+    direction: document.getElementById(`${prefix}-direction`).value,
   };
+
   if (type === "macd") {
     rule.fast = document.getElementById(`${prefix}-fast`).value;
     rule.slow = document.getElementById(`${prefix}-slow`).value;
     rule.signal = document.getElementById(`${prefix}-signal`).value;
+  } else if (type === "vwap") {
+    // VWAP has no configurable period here.
   } else {
     rule.period = document.getElementById(`${prefix}-period`).value;
-    if (type === "rsi")
+
+    if (type === "rsi" || type === "atr") {
       rule.threshold = document.getElementById(`${prefix}-threshold`).value;
+    }
+
+    if (type === "bbands") {
+      rule.mult = document.getElementById(`${prefix}-mult`).value;
+
+      rule.band = document.getElementById(`${prefix}-band`).value;
+    }
   }
+
   return rule;
 }
 
@@ -284,7 +472,6 @@ function renderResults(element, result) {
     amount.textContent = value;
     item.append(name, amount);
     metrics.appendChild(item);
-
   });
   element.appendChild(metrics);
 
@@ -339,7 +526,6 @@ export function setupBacktest({
   closeModal,
   setStatus,
 }) {
-
   const modal = document.getElementById("backtest-modal");
   const form = document.getElementById("backtest-form");
   const results = document.getElementById("backtest-results");
