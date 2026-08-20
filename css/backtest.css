@@ -1,26 +1,25 @@
+.positive { color: var(--up); }
+.negative { color: var(--down); }
+
 .backtest-modal {
   width: min(760px, calc(100vw - 32px));
 }
-
 .backtest-form {
   display: grid;
   gap: 14px;
   padding: 18px;
   border-bottom: 1px solid var(--rule);
 }
-
 .backtest-periods {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
-
 .backtest-rules {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
-
 .backtest-rule {
   min-width: 0;
   margin: 0;
@@ -74,9 +73,6 @@
   text-overflow: ellipsis;
 }
 
-.positive { color: var(--up); }
-.negative { color: var(--down); }
-
 .backtest-table-wrap {
   max-height: 250px;
   margin-top: 14px;
@@ -102,7 +98,6 @@
 .backtest-table td:nth-child(2) {
   text-align: left;
 }
-
 .backtest-table th {
   position: sticky;
   top: 0;

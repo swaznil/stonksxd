@@ -202,6 +202,123 @@ class TrendLinePrimitive extends DrawingPrimitiveBase {
   }
 }
 
+class PenPrimitive extends DrawingPrimitiveBase {
+  constructor(chart, series, points = [], color) {
+    super(chart, series);
+
+    this.points = points;
+    this.color = color || DRAW_COLOR;
+  }
+
+  addPoint(point) {
+    if (!point) return;
+
+    this.points.push(point);
+    this._requestUpdate?.();
+  }
+
+  _draw({ context: ctx, horizontalPixelRatio, verticalPixelRatio }) {
+    if (this.points.length < 2) return;
+
+    ctx.save();
+
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = scaleLineWidth(2, horizontalPixelRatio, verticalPixelRatio);
+
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+
+    let started = false;
+
+    for (const point of this.points) {
+      const x = this._timeToX(point.time);
+      const y = this._priceToY(point.price);
+
+      if (x == null || y == null) {
+        started = false;
+        continue;
+      }
+
+      const px = x * horizontalPixelRatio;
+      const py = y * verticalPixelRatio;
+
+      if (!started) {
+        ctx.moveTo(px, py);
+        started = true;
+      } else {
+        ctx.lineTo(px, py);
+      }
+    }
+
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  hitTest(x, y) {
+    if (this.points.length < 2) return null;
+
+    let closest = Infinity;
+
+    for (let i = 1; i < this.points.length; i++) {
+      const p1 = this.points[i - 1];
+      const p2 = this.points[i];
+
+      const x1 = this._timeToX(p1.time);
+      const y1 = this._priceToY(p1.price);
+      const x2 = this._timeToX(p2.time);
+      const y2 = this._priceToY(p2.price);
+
+      if ([x1, y1, x2, y2].some((value) => value == null)) {
+        continue;
+      }
+
+      const distance = pointToSegmentDistance(x, y, x1, y1, x2, y2);
+
+      closest = Math.min(closest, distance);
+    }
+
+    return closest <= ACTIVE_HIT_RADIUS
+      ? {
+          distance: closest,
+          label: "Pen",
+        }
+      : null;
+  }
+
+  getHandlePoint() {
+    if (!this.points.length) return null;
+
+    const coordinates = [];
+
+    for (const point of this.points) {
+      const x = this._timeToX(point.time);
+      const y = this._priceToY(point.price);
+
+      if (x != null && y != null) {
+        coordinates.push({ x, y });
+      }
+    }
+
+    if (!coordinates.length) return null;
+
+    const xs = coordinates.map((point) => point.x);
+    const ys = coordinates.map((point) => point.y);
+
+    const left = Math.min(...xs);
+    const right = Math.max(...xs);
+    const top = Math.min(...ys);
+    const bottom = Math.max(...ys);
+
+    return {
+      x: (left + right) / 2,
+      y: (top + bottom) / 2,
+    };
+  }
+}
+
 class RayPrimitive extends DrawingPrimitiveBase {
   constructor(chart, series, p1, p2, color) {
     super(chart, series);
@@ -621,6 +738,7 @@ class RectanglePrimitive extends DrawingPrimitiveBase {
 
 const TOOLS = [
   { id: "cursor", label: "Cursor", points: 0, icon: "cursor" },
+  { id: "pen", label: "pen", points: 1, icon: "pen" },
   { id: "trendline", label: "Trend Line", points: 2, icon: "trendline" },
   { id: "ray", label: "Ray", points: 2, icon: "ray" },
   { id: "horizontal", label: "Horizontal Line", points: 1, icon: "horizontal" },
@@ -653,6 +771,13 @@ export class DrawingToolManager {
     this._onContext = this._onContext.bind(this);
     this._onLeave = this._onLeave.bind(this);
 
+    this._onPenDown = this._onPenDown.bind(this);
+    this._onPenMove = this._onPenMove.bind(this);
+    this._onPenUp = this._onPenUp.bind(this);
+
+    this.activePen = null;
+    this.penPointerId = null;
+
     container.style.position = container.style.position || "relative";
 
     this._deleteButton = document.createElement("button");
@@ -683,6 +808,11 @@ export class DrawingToolManager {
     container.addEventListener("click", this._onClick);
     container.addEventListener("contextmenu", this._onContext);
     container.addEventListener("mouseleave", this._onLeave);
+
+    container.addEventListener("pointerdown", this._onPenDown);
+    container.addEventListener("pointermove", this._onPenMove);
+    container.addEventListener("pointerup", this._onPenUp);
+    container.addEventListener("pointercancel", this._onPenUp);
 
     chart.subscribeCrosshairMove(this._onMove);
     window.addEventListener("keydown", this._onKeyDown);
@@ -720,10 +850,19 @@ export class DrawingToolManager {
 
   clearAll() {
     this._clearPreview();
+
+    if (this.activePen) {
+      this.series.detachPrimitive(this.activePen);
+      this.activePen = null;
+      this.penPointerId = null;
+    }
+
     this.drawings.forEach((d) => this.series.detachPrimitive(d.primitive));
+
     this.drawings = [];
     this.pendingPoints = [];
     this.hoveredDrawing = null;
+
     this._hideDelete();
   }
 
@@ -732,8 +871,15 @@ export class DrawingToolManager {
     this.container.removeEventListener("click", this._onClick);
     this.container.removeEventListener("contextmenu", this._onContext);
     this.container.removeEventListener("mouseleave", this._onLeave);
+
+    this.container.removeEventListener("pointerdown", this._onPenDown);
+    this.container.removeEventListener("pointermove", this._onPenMove);
+    this.container.removeEventListener("pointerup", this._onPenUp);
+    this.container.removeEventListener("pointercancel", this._onPenUp);
+
     this.chart.unsubscribeCrosshairMove?.(this._onMove);
     window.removeEventListener("keydown", this._onKeyDown);
+
     this._deleteButton?.remove();
   }
 
@@ -799,8 +945,16 @@ export class DrawingToolManager {
       const point = param?.point || drawing.primitive.getHandlePoint?.();
       if (point) {
         const buttonSize = 30;
-        const left = clamp(point.x + 12,6,this.container.clientWidth - buttonSize - 6,);
-        const top = clamp(point.y - buttonSize / 2,6,this.container.clientHeight - buttonSize - 6,);
+        const left = clamp(
+          point.x + 12,
+          6,
+          this.container.clientWidth - buttonSize - 6,
+        );
+        const top = clamp(
+          point.y - buttonSize / 2,
+          6,
+          this.container.clientHeight - buttonSize - 6,
+        );
         this._deleteButton.style.left = `${left}px`;
         this._deleteButton.style.top = `${top}px`;
       }
@@ -821,6 +975,74 @@ export class DrawingToolManager {
     this.hoveredDrawing = null;
     this._hideDelete();
     this._syncCursor();
+  }
+
+  _onPenDown(event) {
+    if (this.activeTool !== "pen") return;
+
+    if (event.button !== 0) return;
+
+    const point = this._eventToPoint(event);
+    if (!point) return;
+
+    event.preventDefault();
+
+    this.penPointerId = event.pointerId;
+    this.container.setPointerCapture?.(event.pointerId);
+
+    this.activePen = new PenPrimitive(
+      this.chart,
+      this.series,
+      [point],
+      this.currentColor,
+    );
+
+    this.series.attachPrimitive(this.activePen);
+  }
+
+  _onPenMove(event) {
+    if (this.activeTool !== "pen") return;
+    if (!this.activePen) return;
+    if (event.pointerId !== this.penPointerId) return;
+
+    const point = this._eventToPoint(event);
+    if (!point) return;
+
+    event.preventDefault();
+
+    const points = this.activePen.points;
+    const last = points[points.length - 1];
+
+    if (last) {
+      const distanceSquared = dist2(last.x, last.y, point.x, point.y);
+
+      if (distanceSquared < 4) return;
+    }
+
+    this.activePen.addPoint(point);
+  }
+
+  _onPenUp(event) {
+    if (!this.activePen) return;
+    if (event.pointerId !== this.penPointerId) return;
+
+    event.preventDefault();
+
+    this.container.releasePointerCapture?.(event.pointerId);
+
+    if (this.activePen.points.length >= 2) {
+      this.drawings.push({
+        id: this._seq++,
+        tool: "pen",
+        primitive: this.activePen,
+      });
+    } else {
+
+      this.series.detachPrimitive(this.activePen);
+    }
+
+    this.activePen = null;
+    this.penPointerId = null;
   }
 
   _onMove(param) {
@@ -913,6 +1135,7 @@ export class DrawingToolManager {
 
   _onClick(e) {
     if (this.activeTool === "cursor") return;
+    if (this.activeTool === "pen") return;
 
     const point = this._coordToPoint(this.hover) || this._eventToPoint(e);
     if (!point) return;
@@ -1040,6 +1263,8 @@ export class DrawingToolManager {
 
 const TOOL_ICONS = {
   cursor: `<path d="M4 3l7 16 2-6 6-2z" fill="currentColor"/>`,
+  pen: `<path d="M5 18c3-5 5-8 8-11l2-2 4 4-2 2c-3 3-6 5-11 8l-3 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M13 7l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>`,
   trendline: `<circle cx="5" cy="18" r="1.6" fill="currentColor"/><circle cx="19" cy="5" r="1.6" fill="currentColor"/><line x1="5" y1="18" x2="19" y2="5" stroke="currentColor" stroke-width="1.6"/>`,
   ray: `<circle cx="5" cy="18" r="1.6" fill="currentColor"/><line x1="5" y1="18" x2="21" y2="7" stroke="currentColor" stroke-width="1.6"/>`,
   horizontal: `<line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1.6"/>`,

@@ -12,13 +12,13 @@ import {
 import { DrawingToolManager, buildDrawingToolbar } from "./drawing-tools.js";
 
 const COLORS = [
-  "#3179f5",
-  "#e0a537",
-  "#7e57c2",
-  "#42a5f5",
-  "#8d6e63",
-  "#5c6bc0",
-  "#26c6da",
+  "#377bf1",
+  "#e0a73f",
+  "#815bc3",
+  "#41a2f1",
+  "#8b6c61",
+  "#5a69bd",
+  "#2bc5da",
 ];
 
 const DEFAULT_PANE_HEIGHT = 160;
