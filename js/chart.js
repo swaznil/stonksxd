@@ -96,6 +96,34 @@ function updateReadout(param, element, series, isOhlc) {
   }
 }
 
+function updatePaneReadout(param, indicator) {
+  if (!indicator.paneLabel) return;
+
+  if (!param.time || !param.seriesData) {
+    indicator.paneLabel.valueSpan.textContent = "";
+    return;
+  }
+  const values = [];
+  indicator.series.forEach((entry) => {
+    const data = param.seriesData.get(entry.series);
+    if (!data) return;
+
+    const value = Number(data.value ?? data.close);
+    if (!Number.isFinite(value)) return;
+
+    const formatted =
+      entry.format === "volume"
+        ? new Intl.NumberFormat(undefined, {
+            notation: "compact",
+            maximumFractionDigits: 2,
+          }).format(value)
+        : value.toFixed(2);
+
+    values.push(entry.name ? `${entry.name} ${formatted}` : formatted);
+  });
+  indicator.paneLabel.valueSpan.textContent = values.join("  ");
+}
+
 function attachPaneLabel(pane, title) {
   const paneElement = pane.getHTMLElement?.();
   if (!paneElement) return null;
@@ -114,7 +142,12 @@ function attachPaneLabel(pane, title) {
 }
 
 export class ChartController {
-  constructor({ mountElement, toolbarElement, indicatorListElement, setStatus }) {
+  constructor({
+    mountElement,
+    toolbarElement,
+    indicatorListElement,
+    setStatus,
+  }) {
     this.mountElement = mountElement;
     this.toolbarElement = toolbarElement;
     this.indicatorListElement = indicatorListElement;
@@ -150,12 +183,7 @@ export class ChartController {
       );
       this.indicators.forEach((indicator) => {
         if (indicator.kind === "pane" && indicator.paneLabel) {
-          updateReadout(
-            param,
-            indicator.paneLabel.valueSpan,
-            indicator.series[0].series,
-            false,
-          );
+          updatePaneReadout(param, indicator);
         }
       });
     });
@@ -185,6 +213,7 @@ export class ChartController {
       indicator.series.forEach(({ series }) => this.chart.removeSeries(series));
     });
     this.indicators = [];
+    this.colorIndex = 0;
     this.renderIndicatorList();
   }
 
@@ -206,6 +235,11 @@ export class ChartController {
       layout: {
         background: { color: light ? "#f7f9fc" : "#11151e" },
         textColor: light ? "#202532" : "#d1d4dc",
+        panes: {
+          separatorColor: light ? "#cbd2df" : "#363a4a",
+          separatorHoverColor: "rgba(44, 126, 249, 0.15)",
+          enableResize: true,
+        },
       },
       grid: {
         vertLines: { color: light ? "#e7ebf2" : "#212734" },
@@ -241,15 +275,21 @@ export class ChartController {
       kind: "overlay",
       series: [],
     };
-    const addLine = (data, options = {}, paneIndex = 0) => {
+    const addLine = (data, options = {}, paneIndex = 0, name = "") => {
       const color = options.color || this.nextColor();
       const series = this.chart.addSeries(
         LineSeries,
-        { color, lineWidth: 2, ...options },
+        {
+          color,
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          ...options,
+        },
         paneIndex,
       );
       series.setData(data);
-      record.series.push({ series, color });
+      record.series.push({ series, color, name });
       return series;
     };
 
@@ -284,11 +324,21 @@ export class ChartController {
       const color = "#26a69a";
       const series = this.chart.addSeries(
         HistogramSeries,
-        { color },
+        {
+          color,
+          priceFormat: { type: "volume" },
+          priceLineVisible: false,
+          lastValueVisible: false,
+        },
         this.nextPaneIndex(),
       );
       series.setData(data);
-      record.series.push({ series, color });
+      record.series.push({
+        series,
+        color,
+        name: "",
+        format: "volume",
+      });
       this.finalizePane(record);
     } else if (type === "rsi" || type === "atr") {
       record.kind = "pane";
@@ -297,7 +347,32 @@ export class ChartController {
         type === "rsi"
           ? calcRSI(this.candles, params.period)
           : calcATR(this.candles, params.period);
-      addLine(data, {}, this.nextPaneIndex());
+
+      const line = addLine(
+        data,
+        {},
+        this.nextPaneIndex(),
+        type === "rsi" ? "RSI" : "ATR",
+      );
+
+      if (type === "rsi") {
+        line.createPriceLine({
+          price: 70,
+          color: "#7d808a",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: false,
+        });
+
+        line.createPriceLine({
+          price: 30,
+          color: "#7d808a",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: false,
+        });
+      }
+
       this.finalizePane(record);
     } else if (type === "macd") {
       record.kind = "pane";
@@ -309,27 +384,56 @@ export class ChartController {
         params.slow,
         params.signal,
       );
-      addLine(data.macdLine, {}, paneIndex);
-      addLine(data.signalLine, {}, paneIndex);
-      const color = "#4a4e5c";
+      addLine(data.macdLine, {}, paneIndex, "MACD");
+      addLine(data.signalLine, { lineWidth: 1 }, paneIndex, "Signal");
+      const color = "#7d808a";
       const histogram = this.chart.addSeries(
         HistogramSeries,
-        { color },
+        {
+          color,
+          priceLineVisible: false,
+          lastValueVisible: false,
+        },
         paneIndex,
       );
-      histogram.setData(data.histogram);
-      record.series.push({ series: histogram, color });
+      histogram.setData(
+        data.histogram.map((point) => ({
+          ...point,
+          color: point.value >= 0 ? "#2aaea0a6" : "#ef5452a6",
+        })),
+      );
+      record.series.push({
+        series: histogram,
+        color,
+        name: "Hist",
+      });
       this.finalizePane(record);
     } else if (type === "vwap") {
-      addLine(calcVWAP(this.candles), { lineStyle: LineStyle.Dashed });
+      addLine(calcVWAP(this.candles), {
+        lineStyle: LineStyle.Dashed,
+      });
       record.label = "VWAP";
     } else if (type === "stoch") {
       record.kind = "pane";
       record.label = `Stochastic(${params.period})`;
       const paneIndex = this.nextPaneIndex();
       const { kLine, dLine } = calcStochastic(this.candles, params.period);
-      addLine(kLine, {}, paneIndex);
-      addLine(dLine, { lineWidth: 1 }, paneIndex);
+      const kSeries = addLine(kLine, {}, paneIndex, "%K");
+      addLine(dLine, { lineWidth: 1 }, paneIndex, "%D");
+      kSeries.createPriceLine({
+        price: 80,
+        color: "#7d808a",
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: false,
+      });
+      kSeries.createPriceLine({
+        price: 20,
+        color: "#7d808a",
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        axisLabelVisible: false,
+      });
       this.finalizePane(record);
     } else if (type === "custom") {
       try {
@@ -338,7 +442,9 @@ export class ChartController {
           this.candles,
           params.variables || [],
         );
-        if (!data.length) throw new Error("Formula produced no plottable values");
+        if (!data.length) {
+          throw new Error("Formula produced no plottable values");
+        }
         record.kind = params.panel === "pane" ? "pane" : "overlay";
         record.label = params.name || params.formula;
         const color = params.color || this.nextColor();
@@ -346,7 +452,15 @@ export class ChartController {
         const paneIndex = record.kind === "pane" ? this.nextPaneIndex() : 0;
         let series;
         if (params.draw === "histogram") {
-          series = this.chart.addSeries(HistogramSeries, { color }, paneIndex);
+          series = this.chart.addSeries(
+            HistogramSeries,
+            {
+              color,
+              priceLineVisible: false,
+              lastValueVisible: false,
+            },
+            paneIndex,
+          );
         } else if (params.draw === "area") {
           series = this.chart.addSeries(
             AreaSeries,
@@ -355,19 +469,33 @@ export class ChartController {
               topColor: `${color}55`,
               bottomColor: `${color}05`,
               lineWidth: width,
+              priceLineVisible: false,
+              lastValueVisible: false,
             },
             paneIndex,
           );
         } else {
           series = this.chart.addSeries(
             LineSeries,
-            { color, lineWidth: width },
+            {
+              color,
+              lineWidth: width,
+              priceLineVisible: false,
+              lastValueVisible: false,
+            },
             paneIndex,
           );
         }
         series.setData(data);
-        record.series.push({ series, color });
-        if (record.kind === "pane") this.finalizePane(record);
+        record.series.push({
+          series,
+          color,
+          name: record.kind === "pane" ? record.label : "",
+        });
+
+        if (record.kind === "pane") {
+          this.finalizePane(record);
+        }
       } catch (error) {
         this.setStatus(`Custom indicator error: ${error.message}`);
         return false;
@@ -393,13 +521,16 @@ export class ChartController {
         paneIndex = null;
       }
     }
-    indicator.series.forEach(({ series }) => this.chart.removeSeries(series));
+    indicator.series.forEach(({ series }) => {
+      try {
+        this.chart.removeSeries(series);
+      } catch (_error) {}
+    });
+
     if (paneIndex !== null) {
       try {
         this.chart.removePane(paneIndex);
-      } catch (_error) {
-        // Lightweight Charts may already remove an empty pane.
-      }
+      } catch (_error) {}
     }
     this.indicators = this.indicators.filter((item) => item.id !== id);
     this.renderIndicatorList();
@@ -421,11 +552,14 @@ export class ChartController {
       const label = document.createElement("span");
       const swatch = document.createElement("span");
       swatch.className = "swatch";
-      swatch.style.background = indicator.series[0].color;
+      swatch.style.background = indicator.series[0]?.color || "#7d808a";
       label.append(swatch, document.createTextNode(indicator.label));
       const button = document.createElement("button");
+      button.type = "button";
       button.textContent = "Remove";
-      button.addEventListener("click", () => this.removeIndicator(indicator.id));
+      button.addEventListener("click", () => {
+        this.removeIndicator(indicator.id);
+      });
       item.append(label, button);
       list.appendChild(item);
     });
