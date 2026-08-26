@@ -1,9 +1,8 @@
 # stonksxd
 
-StonksxD is a technical analysis platform that allows users to to build, visualize, and backtest custom indicators. It is made with vanilla HTML, CSS and JavaScript. It lets you load OHLCV CSV data, view candlestick charts, add indicators, create custom formula indicators and draw directly on the chart.
+StonksxD is a technical analysis tool for building, visualizing, and backtesting custom indicators. It is built with vanilla HTML, CSS and JavaScript. It supports OHLCV CSV files, candlestick charts, built-in and custom indicators, chart drawing tools, and strategy backtesting.
 
-StonksxD is both a learning project and a practical useful tool. I have been using this to create my own
-custom indicator in intuitive and simple way which required a paid plan on other platforms.
+StonksxD is both a learning project and a practical useful tool. I have been using this to create my own custom indicator in intuitive and simple way which required a paid plan on other platforms.
 
 
 ## Motivation
@@ -15,7 +14,7 @@ Once I finished the custom indicator part of it and got everything running prope
 
 ## Live Demo
 
-Project can be run by cloning the repository and opening it with a local server, or directly through the link:
+Project can be run through the link:
 
 stonksxd.vercel.app
 
@@ -24,7 +23,7 @@ stonksxd.vercel.app
 ## Features
 
 - Load candlestick chart from CSV file
-- Analyse the chart with built in Indicators
+- Use built in or custom Indicators
 - Create, import, export custom indicators
 - Premade indicators such as: SMA, EMA, Bollinger Bands, RSI, MACD, ATR, VWAP, and more
 - Backtest indicator based strategies
@@ -36,7 +35,7 @@ stonksxd.vercel.app
 ## Built In Indicators
 
 - Simple Moving Average (SMA)
-- Exponential Moving Average (EMA)
+- Exponential Moving Average
 - Bollinger Bands
 - Volume
 - RSI
@@ -78,20 +77,6 @@ The CSV loader expects data in this format:
 published_date,open,high,low,close,traded_quantity
 ```
 
-Required columns:
-
-- `published_date`
-- `open`
-- `high`
-- `low`
-- `close`
-
-Optional column:
-
-- `traded_quantity`
-
-`traded_quantity` is used for volume if it is available.
-
 ---
 
 ## Tech Stack
@@ -107,30 +92,13 @@ Optional column:
 ## Project Structure
 
 ```text
-stonksxd
-├── README.md
-├── assets
-│   ├── screenshotchart.png
-│   └── screenshotindicator.png
-├── css
-│   ├── backtest.css
-│   ├── base.css
-│   ├── components.css
-│   └── custom-indicator.css
-├── data
-│   ├── sample01.csv
-│   ├── sample02.csv
-│   ├── sample03.csv
-│   ├── sample04.csv
-│   └── sample05.csv
-├── index.html
-└── js
-    ├── app.js
-    ├── backtest.js
-    ├── chart.js
-    ├── data.js
-    ├── drawing-tools.js
-    └── indicators.js
+stonksxd/
+├── assets/        # Screenshots and other assets
+├── css/           # Stylesheets
+├── data/          # Sample CSV datasets
+├── js/            # JavaScript Code
+├── index.html     
+└── README.md      
 ```
 
 ---

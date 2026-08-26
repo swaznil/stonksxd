@@ -2,82 +2,101 @@
 .negative { color: var(--down); }
 
 .backtest-modal {
-  width: min(760px, calc(100vw - 32px));
+  width: min(780px, calc(100vw - 32px));
 }
 .backtest-form {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 20px;
+  padding: 20px 22px;
   border-bottom: 1px solid var(--rule);
 }
 .backtest-periods {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
 .backtest-rules {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
 }
 .backtest-rule {
   min-width: 0;
   margin: 0;
-  padding: 12px;
-  border: 1px solid var(--rule-strong);
-  background: var(--panel-alt);
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.backtest-rule + .backtest-rule {
+  padding-left: 24px;
+  border-left: 1px solid var(--rule);
 }
 .backtest-rule legend {
-  padding: 0 6px;
+  padding: 0;
+  margin-bottom: 12px;
   color: var(--ink);
   font-family: var(--mono);
   font-size: 12px;
+  font-weight: 500;
 }
 
 .rule-parameters {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 10px;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 10px;
 }
 .rule-parameters .form-row:nth-child(4) {
   grid-column: 1 / -1;
 }
 
 .backtest-results {
-  padding: 18px;
+  padding: 20px 22px 22px;
 }
 
 .backtest-metrics {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--rule);
 }
 .backtest-metrics > div {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  flex: 1;
   min-width: 0;
-  padding: 10px;
-  border: 1px solid var(--rule);
-  background: var(--panel-alt);
+  padding: 0 16px;
+  background: transparent;
+  border: 0;
+}
+.backtest-metrics > div:first-child {
+  padding-left: 0;
+}
+.backtest-metrics > div:last-child {
+  padding-right: 0;
+}
+.backtest-metrics > div + div {
+  border-left: 1px solid var(--rule);
 }
 .backtest-metrics span {
+  display: block;
+  margin-bottom: 5px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
 }
 .backtest-metrics strong {
+  display: block;
   overflow: hidden;
+  color: var(--ink);
   font-family: var(--mono);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
   text-overflow: ellipsis;
 }
 
 .backtest-table-wrap {
-  max-height: 250px;
-  margin-top: 14px;
+  max-height: 270px;
+  margin-top: 18px;
   overflow: auto;
-  border: 1px solid var(--rule);
+  border: 0;
 }
 .backtest-table {
   width: 100%;
@@ -87,7 +106,8 @@
 }
 .backtest-table th,
 .backtest-table td {
-  padding: 8px;
+  height: 34px;
+  padding: 0 9px;
   border-bottom: 1px solid var(--rule);
   text-align: right;
   white-space: nowrap;
@@ -101,14 +121,46 @@
 .backtest-table th {
   position: sticky;
   top: 0;
+  z-index: 1;
+  color: var(--muted);
+  background: var(--panel);
+  font-weight: 400;
+}
+.backtest-table tbody tr:hover {
   background: var(--panel-alt);
+}
+.backtest-empty {
+  margin: 18px 0 0;
   color: var(--muted);
 }
 
-.backtest-empty { margin: 14px 0 0; }
 
 @media (max-width: 680px) {
-  .backtest-periods { grid-template-columns: 1fr; }
-  .backtest-rules { grid-template-columns: 1fr; }
-  .backtest-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .backtest-periods,
+  .backtest-rules {
+    grid-template-columns: 1fr;
+  }
+  .backtest-rule + .backtest-rule {
+    padding-top: 18px;
+    padding-left: 0;
+    border-top: 1px solid var(--rule);
+    border-left: 0;
+  }
+  .backtest-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 0;
+  }
+  .backtest-metrics > div,
+  .backtest-metrics > div:first-child,
+  .backtest-metrics > div:last-child {
+    padding: 0 12px;
+    border-left: 0;
+  }
+  .backtest-metrics > div:nth-child(odd) {
+    padding-left: 0;
+  }
+  .backtest-metrics > div:nth-child(even) {
+    border-left: 1px solid var(--rule);
+  }
 }
